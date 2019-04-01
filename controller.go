@@ -36,8 +36,8 @@ import (
 
 	clientset "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned"
 	ccscheme "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned/scheme"
-	informers "github.com/ryo-watanabe/k8s-backup/pkg/client/informers/externalversions/customercluster/v1alpha1"
-	listers "github.com/ryo-watanabe/k8s-backup/pkg/client/listers/customercluster/v1alpha1"
+	informers "github.com/ryo-watanabe/k8s-backup/pkg/client/informers/externalversions/clusterbackup/v1alpha1"
+	listers "github.com/ryo-watanabe/k8s-backup/pkg/client/listers/clusterbackup/v1alpha1"
 
 	"github.com/ryo-watanabe/k8s-backup/pkg/resources"
 )
@@ -172,3 +172,4 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	return nil
 }
+

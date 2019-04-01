@@ -10,8 +10,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 
-	ccv1alpha1 "gitlab.devops.nifcloud.net/x_nke/hatoba-backup-controller/pkg/apis/customercluster/v1alpha1"
-	"gitlab.devops.nifcloud.net/x_nke/hatoba-backup-controller/pkg/arkresources"
+	ccv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup/v1alpha1"
 )
 
 // runWorker is a long-running function that will continually call the
@@ -116,3 +115,4 @@ func (c *Controller) enqueueBackup(obj interface{}) {
 	}
 	c.backupQueue.AddRateLimited(key)
 }
+

@@ -1,0 +1,8 @@
+apiVersion: customercluster.hatoba/v1alpha1
+kind: Restore
+metadata:
+  name: cluster01-backup01-restore01
+  namespace: hatoba-backup
+spec:
+  hatobaId: cluster01
+  backupName: cluster01-backup01

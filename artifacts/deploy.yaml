@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hatoba-backup-controller
+  namespace: hatoba-backup
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hatoba-backup-controller
+  template:
+    metadata:
+      labels:
+        app: hatoba-backup-controller
+    spec:
+      containers:
+        - name: hatoba-backup-controller
+          image: container-registry.devops.nifcloud.net/x_nke/hatoba-backup-controller:[TAG]
+          command:
+            - /hatoba-backup-controller
+            - --arkimage=haproxy:gcr.io/heptio-images/ark:v0.10.0
+            - --kubectlimage=lachlanevenson/k8s-kubectl
+            - --haproxyimage=haproxy:1.8-alpine
+            - --namespace=hatoba-backup
+            - --ark-namespace=heptio-ark
+      imagePullSecrets:
+      - name: myregistrykey

@@ -1,0 +1,53 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: backups.clusterbackup.ssl
+spec:
+  group: clusterbackup.ssl
+  version: v1alpha1
+  scope: Namespaced
+  names:
+    kind: Backup
+    plural: backups
+  additionalPrinterColumns:
+  - name: CLUSTERNAME
+    type: string
+    description: Cluster ID.
+    JSONPath: .spec.clusterName
+  - name: BACKUPDATE
+    type: string
+    description: Timestamp of backup.
+    JSONPath: .metadata.creationTimestamp
+  - name: STATUS
+    type: string
+    description: Status of backup.
+    JSONPath: .status.phase
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: restores.clusterbackup.ssl
+spec:
+  group: clusterbackup.ssl
+  version: v1alpha1
+  scope: Namespaced
+  names:
+    kind: Restore
+    plural: restores
+  additionalPrinterColumns:
+  - name: CLUSTERNAME
+    type: string
+    description: Cluster ID.
+    JSONPath: .spec.clusterName
+  - name: BACKUPNAME
+    type: string
+    description: Backup data ID used for restore.
+    JSONPath: .spec.backupName
+  - name: RESTOREDATE
+    type: string
+    description: Timestamp of restore.
+    JSONPath: .metadata.creationTimestamp
+  - name: STATUS
+    type: string
+    description: Status of backup.
+    JSONPath: .status.phase

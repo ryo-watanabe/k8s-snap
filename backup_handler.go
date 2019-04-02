@@ -2,15 +2,16 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 
-	ccv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup/v1alpha1"
+	cbv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup/v1alpha1"
 )
 
 // runWorker is a long-running function that will continually call the
@@ -59,7 +60,7 @@ func (c *Controller) processNextBackupItem() bool {
 // with the current status of the resource.
 func (c *Controller) backupSyncHandler(key string) error {
 
-	getOptions := metav1.GetOptions{IncludeUninitialized: false}
+	//getOptions := metav1.GetOptions{IncludeUninitialized: false}
 
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
@@ -93,10 +94,10 @@ func (c *Controller) backupSyncHandler(key string) error {
 	return nil
 }
 
-func (c *Controller) updateBackupStatus(backup *ccv1alpha1.Backup, phase, reason string) error {
+func (c *Controller) updateBackupStatus(backup *cbv1alpha1.Backup, phase, reason string) error {
 	backupCopy := backup.DeepCopy()
 	backupCopy.Status.Phase = phase
-	_, err := c.ccclientset.CustomerclusterV1alpha1().Backups(backup.Namespace).Update(backupCopy)
+	_, err := c.cbclientset.CustomerclusterV1alpha1().Backups(backup.Namespace).Update(backupCopy)
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("Failed to update backup status for " + backup.ObjectMeta.Name))
 	}
@@ -115,4 +116,3 @@ func (c *Controller) enqueueBackup(obj interface{}) {
 	}
 	c.backupQueue.AddRateLimited(key)
 }
-

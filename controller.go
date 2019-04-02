@@ -21,8 +21,8 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	//"k8s.io/apimachinery/pkg/api/errors"
+	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -39,7 +39,7 @@ import (
 	informers "github.com/ryo-watanabe/k8s-backup/pkg/client/informers/externalversions/clusterbackup/v1alpha1"
 	listers "github.com/ryo-watanabe/k8s-backup/pkg/client/listers/clusterbackup/v1alpha1"
 
-	"github.com/ryo-watanabe/k8s-backup/pkg/resources"
+	//"github.com/ryo-watanabe/k8s-backup/pkg/resources"
 )
 
 const controllerAgentName = "k8s-backup"
@@ -147,7 +147,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer c.restoreQueue.ShutDown()
 
 	//listOptions := metav1.ListOptions{IncludeUninitialized: false}
-	getOptions := metav1.GetOptions{IncludeUninitialized: false}
+	//getOptions := metav1.GetOptions{IncludeUninitialized: false}
 
 	// Start the informer factories to begin populating the informer caches
 	klog.Info("Starting backup controller")
@@ -172,4 +172,3 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	return nil
 }
-

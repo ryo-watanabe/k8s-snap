@@ -18,14 +18,19 @@ import (
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
 func (c *Controller) runBackupWorker() {
-	for c.processNextBackupItem() {
+	for c.processNextBackupItem(false) {
+	}
+}
+
+func (c *Controller) runBackupQueuer() {
+	for c.processNextBackupItem(true) {
 	}
 }
 
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the syncHandler.
-func (c *Controller) processNextBackupItem() bool {
-  // Proccess backup queue
+func (c *Controller) processNextBackupItem(queueonly bool) bool {
+	// Proccess backup queue
 	obj, shutdown := c.backupQueue.Get()
 	if shutdown {
 		return false
@@ -39,12 +44,12 @@ func (c *Controller) processNextBackupItem() bool {
 			runtime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
 			return nil
 		}
-		if err := c.backupSyncHandler(key); err != nil {
+		if err := c.backupSyncHandler(key, queueonly); err != nil {
 			c.backupQueue.AddRateLimited(key)
 			return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())
 		}
 		c.backupQueue.Forget(obj)
-		klog.Infof("Successfully synced '%s'", key)
+		klog.V(4).Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
 	if err != nil {
@@ -58,7 +63,7 @@ func (c *Controller) processNextBackupItem() bool {
 // backupSyncHandler compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Backup resource
 // with the current status of the resource.
-func (c *Controller) backupSyncHandler(key string) error {
+func (c *Controller) backupSyncHandler(key string, queueonly bool) error {
 
 	//getOptions := metav1.GetOptions{IncludeUninitialized: false}
 
@@ -84,24 +89,39 @@ func (c *Controller) backupSyncHandler(key string) error {
 		}
 	}
 
-	if backup.Status.Phase == "" {
-		c.updateBackupStatus(backup, "InProgress", "")
+	if !queueonly && backup.Status.Phase == "InQueue" {
+		// do backup
+		backup, err = c.updateBackupStatus(backup, "InProgress", "")
+		if err != nil {
+			return err
+		}
 		time.Sleep(120 * time.Second)
-		c.updateBackupStatus(backup, "Completed", "")
+		backup, err = c.updateBackupStatus(backup, "Completed", "")
+		if err != nil {
+			return err
+		}
 	}
 
-	c.recorder.Event(backup, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
+	if backup.Status.Phase == "" {
+		backup, err = c.updateBackupStatus(backup, "InQueue", "")
+		if err != nil {
+			return err
+		}
+	}
+
+	c.recorder.Event(backup, corev1.EventTypeNormal, "Synced", "Backup synced successfully")
 	return nil
 }
 
-func (c *Controller) updateBackupStatus(backup *cbv1alpha1.Backup, phase, reason string) error {
+func (c *Controller) updateBackupStatus(backup *cbv1alpha1.Backup, phase, reason string) (*cbv1alpha1.Backup, error) {
 	backupCopy := backup.DeepCopy()
 	backupCopy.Status.Phase = phase
-	_, err := c.cbclientset.CustomerclusterV1alpha1().Backups(backup.Namespace).Update(backupCopy)
+	backupCopy.Status.Reason = reason
+	backup, err := c.cbclientset.CustomerclusterV1alpha1().Backups(backup.Namespace).Update(backupCopy)
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("Failed to update backup status for " + backup.ObjectMeta.Name))
+		return backup, fmt.Errorf("Failed to update backup status for " + backup.ObjectMeta.Name + " : " + err.Error())
 	}
-	return err
+	return backup, err
 }
 
 // enqueueBackup takes a Backup resource and converts it into a namespace/name

@@ -18,13 +18,17 @@ import (
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
 func (c *Controller) runRestoreWorker() {
-	for c.processNextRestoreItem() {
+	for c.processNextRestoreItem(false) {
+	}
+}
+func (c *Controller) runRestoreQueuer() {
+	for c.processNextRestoreItem(true) {
 	}
 }
 
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the syncHandler.
-func (c *Controller) processNextRestoreItem() bool {
+func (c *Controller) processNextRestoreItem(queueonly bool) bool {
 	// Proccess restore queue
 	obj, shutdown := c.restoreQueue.Get()
 	if shutdown {
@@ -39,12 +43,12 @@ func (c *Controller) processNextRestoreItem() bool {
 			runtime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
 			return nil
 		}
-		if err := c.restoreSyncHandler(key); err != nil {
+		if err := c.restoreSyncHandler(key, queueonly); err != nil {
 			c.restoreQueue.AddRateLimited(key)
 			return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())
 		}
 		c.restoreQueue.Forget(obj)
-		klog.Infof("Successfully synced '%s'", key)
+		klog.V(4).Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
 	if err != nil {
@@ -58,7 +62,7 @@ func (c *Controller) processNextRestoreItem() bool {
 // backupSyncHandler compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Backup resource
 // with the current status of the resource.
-func (c *Controller) restoreSyncHandler(key string) error {
+func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 
 	//getOptions := metav1.GetOptions{IncludeUninitialized: false}
 
@@ -84,25 +88,38 @@ func (c *Controller) restoreSyncHandler(key string) error {
 		}
 	}
 
-	if restore.Status.Phase == "" {
-		c.updateRestoreStatus(restore, "InProgress", "")
+	if !queueonly && restore.Status.Phase == "InQueue" {
+		restore, err = c.updateRestoreStatus(restore, "InProgress", "")
+		if err != nil {
+			return err
+		}
 		time.Sleep(120 * time.Second)
-		c.updateRestoreStatus(restore, "Completed", "")
+		restore, err = c.updateRestoreStatus(restore, "Completed", "")
+		if err != nil {
+			return err
+		}
 	}
 
-	c.recorder.Event(restore, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
+	if restore.Status.Phase == "" {
+		restore, err = c.updateRestoreStatus(restore, "InQueue", "")
+		if err != nil {
+			return err
+		}
+	}
+
+	c.recorder.Event(restore, corev1.EventTypeNormal, "Synced", "Restore synced successfully")
 	return nil
 }
 
-func (c *Controller) updateRestoreStatus(restore *cbv1alpha1.Restore, phase, reason string) error {
+func (c *Controller) updateRestoreStatus(restore *cbv1alpha1.Restore, phase, reason string) (*cbv1alpha1.Restore, error) {
 	restoreCopy := restore.DeepCopy()
 	restoreCopy.Status.Phase = phase
 	restoreCopy.Status.Reason = reason
-	_, err := c.cbclientset.CustomerclusterV1alpha1().Restores(restore.Namespace).Update(restoreCopy)
+	restore, err := c.cbclientset.CustomerclusterV1alpha1().Restores(restore.Namespace).Update(restoreCopy)
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("Failed to update restore status for " + restore.ObjectMeta.Name))
+		return nil, fmt.Errorf("Failed to update restore status for " + restore.ObjectMeta.Name + " : " + err.Error())
 	}
-	return err
+	return restore, err
 }
 
 // enqueueRestore takes a Restore resource and converts it into a namespace/name

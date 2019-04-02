@@ -37,6 +37,8 @@ var (
 	masterURL  string
 	kubeconfig string
 	namespace string
+	backupthreads int
+	restorethreads int
 )
 
 func main() {
@@ -98,7 +100,7 @@ func main() {
 	// Start method is non-blocking and runs all registered informers in a dedicated goroutine.
 	cbInformerFactory.Start(stopCh)
 
-	if err = controller.Run(2, stopCh); err != nil {
+	if err = controller.Run(backupthreads, restorethreads, stopCh); err != nil {
 		klog.Fatalf("Error running controller: %s", err.Error())
 	}
 }
@@ -106,5 +108,7 @@ func main() {
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	flag.StringVar(&namespace, "namespace", "hatoba-backup", "Namespace for hatoba-backup")
+	flag.StringVar(&namespace, "namespace", "k8s-backup", "Namespace for k8s-backup")
+	flag.IntVar(&backupthreads, "backupthreads", 5, "Number of backup threads")
+	flag.IntVar(&restorethreads, "restorethreads", 2, "Number of restore threads")
 }

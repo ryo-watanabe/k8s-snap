@@ -1,0 +1,82 @@
+apiVersion: clusterbackup.ssl/v1alpha1
+kind: RestorePreference
+metadata:
+  name: user-backup
+  namespace: k8s-backup
+spec:
+  excludeNamespaces:
+    - "kube-system"
+    - "cattle-system"
+    - "kube-public"
+    - "ingress-nginx"
+    - "default"
+  excludeCRDs:
+    - "crd.projectcalico.org"
+  excludeApiPathes:
+    - "/api/v1,bindings"
+    - "/api/v1,componentstatuses"
+    - "/api/v1,events"
+    - "/api/v1,limitranges"
+    - "/api/v1,nodes"
+    - "/api/v1,resourcequotas"
+    - "/apis/apiregistration.k8s.io,*"
+    # Ignore extensions path for Apps.
+    - "/apis/extensions,daemonsets"
+    - "/apis/extensions,deployments"
+    - "/apis/extensions,networkpolicies"
+    - "/apis/extensions,podsecuritypolicies"
+    - "/apis/extensions,replicasets"
+    - "/apis/extensions,replicationcontrollers"
+    - "/apis/scheduling.k8s.io,*"
+    - "/apis/events.k8s.io,*"
+    - "/apis/certificates.k8s.io,*"
+    - "/apis/networking.k8s.io,*"
+    - "/apis/admissionregistration.k8s.io,*"
+    - "/apis/authentication.k8s.io,*"
+    - "/apis/authorization.k8s.io,*"
+    - "/apis/rbac.authorization.k8s.io,clusterroles"
+    # Custom resource pathes not matched here will be restored.
+    - "/apis/crd.projectcalico.org,*"
+
+    #######      Resources will be restored.    #########################################################################
+    #   RESOURCES                                               ADDITIONAL CONDITIONS
+    # - "/api/v1,configmaps"
+    # - "/api/v1,endpoints"                                     # Restore endpoints not owned by services.
+    # - "/api/v1,namespaces"
+    # - "/api/v1,persistentvolumeclaims"                        # Restore PVs using nfs client provisioner only.
+    # - "/api/v1,persistentvolumes"                             # Restore PVCs using nfs client provisioner only.
+    # - "/api/v1,pods"                                          # Restore pods not owned by other apps.
+    # - "/api/v1,podtemplates"
+    # - "/api/v1,secrets"                                       # Restore secrets except serviceaccounts' token.
+    # - "/api/v1,serviceaccounts"
+    # - "/api/v1,services"
+    # - "/apis/rbac.authorization.k8s.io,role"
+    # - "/apis/rbac.authorization.k8s.io,rolebindings"
+    # - "/apis/rbac.authorization.k8s.io,clusterrolebindings"   # Restore clusterrolebindings for user's ServiceAccounts.
+    # - "/apis/apiextensions.k8s.io,customresourcedefinitions"
+    # - "/apis/apps,controllerrevisions"
+    # - "/apis/apps,daemonsets"
+    # - "/apis/apps,deployments"
+    # - "/apis/apps,replicasets"
+    # - "/apis/apps,statefulsets"
+    # - "/apis/extensions,ingresses"
+    # - "/apis/autoscaling,horizontalpodautoscalers"
+    # - "/apis/batch,jobs"
+    # - "/apis/batch,cronjobs"
+    # - "/apis/storage.k8s.io,storageclasses"                   # Restore storageclasses using nfs client provisioner only.
+    #######################################################################################################################
+
+  # Apps must be restored after other resources restored.
+  restoreAppApiPathes:
+    - "/api/v1,pods"
+    - "/api/v1,replicationcontrollers"
+    - "/api/v1,endpoints"
+    - "/apis/apps,*"
+    - "/apis/extensions,ingresses"
+    - "/apis/autoscaling,horizontalpodautoscalers"
+    - "/apis/batch,jobs"
+    - "/apis/batch,cronjobs"
+  restoreOptions:
+    - "restorePVDifinitions"
+    - "restorePVCBoundings"
+    - "restoreUserClusterRolebindings"

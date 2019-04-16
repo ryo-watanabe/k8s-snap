@@ -1,11 +1,12 @@
 apiVersion: clusterbackup.ssl/v1alpha1
 kind: Restore
 metadata:
-  name: cluster01-cluster01-b001-r001
+  name: cluster02-cluster01-001-001
   namespace: k8s-backup
 spec:
-  clusterName: cluster01
+  clusterName: cluster02
   backupName: cluster01-001
+  restorePreferenceName: user-backup
   kubeconfig: |
     apiVersion: v1
     clusters:

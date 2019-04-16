@@ -3,15 +3,25 @@ package main
 import (
 	"fmt"
 	"time"
+	"os"
+	"path/filepath"
+	"archive/tar"
+	"compress/gzip"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	//"k8s.io/apimachinery/pkg/api/meta"
+	//runtimeobj "k8s.io/apimachinery/pkg/runtime"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
+	//"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/discovery"
 	"k8s.io/klog"
 
 	cbv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup/v1alpha1"
+	"github.com/ryo-watanabe/k8s-backup/pkg/cluster"
 )
 
 // runWorker is a long-running function that will continually call the
@@ -60,6 +70,114 @@ func (c *Controller) processNextBackupItem(queueonly bool) bool {
 	return true
 }
 
+func matchVerbs(groupVersion string, r *metav1.APIResource) bool {
+	return discovery.SupportsAllVerbs{Verbs: []string{"list", "create", "get", "delete"}}.Match(groupVersion, r)
+}
+
+func makeResourcePath(backupName, group, version, resourceName, namespace, name string) string {
+
+	// Namespace resources stored on top level.
+	if resourceName == "namespaces" {
+		return filepath.Join(backupName, "namespaces", name)
+	}
+
+	// Other resources stored same as api path.
+	nspath := ""
+	if namespace != "" {
+		nspath = "namespaces"
+	}
+	if group == "" {
+		return filepath.Join(backupName, "api", version, nspath, namespace, resourceName, name)
+	} else {
+		return filepath.Join(backupName, "apis", group, version, nspath, namespace, resourceName, name)
+	}
+}
+
+// Backup k8s resources
+func (c *Controller) doBackup(backup *cbv1alpha1.Backup) error {
+	// kubeClient for exxternal cluster.
+	kubeClient, dynamicClient, err := cluster.BuildKubeClient(backup.Spec.Kubeconfig)
+	if err != nil {
+		return err
+	}
+
+	discoveryClient := kubeClient.Discovery()
+
+	spr, err := discoveryClient.ServerPreferredResources()
+	if err != nil {
+		return err
+	}
+	resources := discovery.FilteredBy(discovery.ResourcePredicateFunc(matchVerbs), spr)
+
+	// backup file
+	backupFile, err := os.Create("/mnt/" + backup.ObjectMeta.Name + ".tgz")
+	if err != nil {
+		return err
+	}
+	tgz := gzip.NewWriter(backupFile)
+	defer tgz.Close()
+
+	tarWriter := tar.NewWriter(tgz)
+	defer tarWriter.Close()
+
+	klog.Info("Resources : ")
+	resourcesMap := make(map[schema.GroupVersionResource]metav1.APIResource)
+
+	for _, resourceGroup := range resources {
+		gv, err := schema.ParseGroupVersion(resourceGroup.GroupVersion)
+		if err != nil {
+			return fmt.Errorf("unable to parse GroupVersion %s : %s", resourceGroup.GroupVersion, err.Error())
+		}
+		klog.Info("- GroupVersion : " + resourceGroup.GroupVersion)
+
+		for _, resource := range resourceGroup.APIResources {
+			gvr := gv.WithResource(resource.Name)
+			resourcesMap[gvr] = resource
+			klog.Info("-- " + resource.Name)
+			unstructuredList, err := dynamicClient.Resource(gvr).List(metav1.ListOptions{})
+			if err != nil {
+				return err
+			}
+			for _, item := range unstructuredList.Items {
+
+				// Resources stored according to api path.
+				itempath := filepath.Join(backup.ObjectMeta.Name, item.GetSelfLink())
+				// Namespaces and CRDs stored on top level.
+				if resource.Name == "namespaces" {
+					itempath = filepath.Join(backup.ObjectMeta.Name, "namespaces", item.GetName())
+				}
+				if resource.Name == "customresourcedefinitions" {
+					itempath = filepath.Join(backup.ObjectMeta.Name, "crds", item.GetName())
+				}
+
+				// backup item
+				content, err := item.MarshalJSON()
+				if err != nil {
+					return err
+				}
+				hdr := &tar.Header{
+					Name:     itempath + ".json",
+					Size:     int64(len(content)),
+					Typeflag: tar.TypeReg,
+					Mode:     0755,
+					ModTime:  time.Now(),
+				}
+				if err := tarWriter.WriteHeader(hdr); err != nil {
+					return err
+				}
+				if _, err := tarWriter.Write(content); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	tarWriter.Close()
+	tgz.Close()
+	backupFile.Close()
+
+	return nil
+}
+
 // backupSyncHandler compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Backup resource
 // with the current status of the resource.
@@ -90,12 +208,21 @@ func (c *Controller) backupSyncHandler(key string, queueonly bool) error {
 	}
 
 	if !queueonly && backup.Status.Phase == "InQueue" {
-		// do backup
 		backup, err = c.updateBackupStatus(backup, "InProgress", "")
 		if err != nil {
 			return err
 		}
-		time.Sleep(120 * time.Second)
+
+		// do backup
+		err = c.doBackup(backup)
+		if err != nil {
+			backup, err = c.updateBackupStatus(backup, "Failed", err.Error())
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+
 		backup, err = c.updateBackupStatus(backup, "Completed", "")
 		if err != nil {
 			return err
@@ -117,9 +244,9 @@ func (c *Controller) updateBackupStatus(backup *cbv1alpha1.Backup, phase, reason
 	backupCopy := backup.DeepCopy()
 	backupCopy.Status.Phase = phase
 	backupCopy.Status.Reason = reason
-	backup, err := c.cbclientset.CustomerclusterV1alpha1().Backups(backup.Namespace).Update(backupCopy)
+	backup, err := c.cbclientset.ClusterbackupV1alpha1().Backups(backup.Namespace).Update(backupCopy)
 	if err != nil {
-		return backup, fmt.Errorf("Failed to update backup status for " + backup.ObjectMeta.Name + " : " + err.Error())
+		return backup, fmt.Errorf("Failed to update backup status for %s : %s", backup.ObjectMeta.Name, err.Error())
 	}
 	return backup, err
 }

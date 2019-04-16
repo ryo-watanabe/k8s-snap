@@ -45,12 +45,33 @@ type RestoreSpec struct {
 	ClusterName string `json:"clusterName"`
 	BackupName string `json:"backupName"`
 	Kubeconfig string `json:"kubeconfig"`
+	RestorePreferenceName string `json:"restorePreferenceName"`
 }
 
 // FooStatus is the status for a Foo resource
 type RestoreStatus struct {
 	Phase string `json:"phase"`
 	Reason string `json:"reason"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// Foo is a specification for a Foo resource
+type RestorePreference struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   RestorePreferenceSpec   `json:"spec"`
+}
+
+// FooSpec is the spec for a Foo resource
+type RestorePreferenceSpec struct {
+	ExcludeNamespaces []string `json:"excludeNamespaces"`
+	ExcludeCRDs []string `json:"excludeCRDs"`
+	ExcludeApiPathes []string `json:"excludeApiPathes"`
+	RestoreAppApiPathes []string `json:"restoreAppApiPathes"`
+	RestoreOptions []string `json:"restoreOptions"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -71,4 +92,14 @@ type RestoreList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Restore `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// FooList is a list of Foo resources
+type RestorePreferenceList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []RestorePreference `json:"items"`
 }

@@ -91,8 +91,8 @@ func main() {
 	cbInformerFactory := informers.NewSharedInformerFactory(cbClient, time.Second*30)
 
 	controller := NewController(kubeClient, cbClient,
-		cbInformerFactory.Customercluster().V1alpha1().Backups(),
-		cbInformerFactory.Customercluster().V1alpha1().Restores(),
+		cbInformerFactory.Clusterbackup().V1alpha1().Backups(),
+		cbInformerFactory.Clusterbackup().V1alpha1().Restores(),
 		namespace,
 	)
 

@@ -71,6 +71,7 @@ type RestorePreferenceSpec struct {
 	ExcludeCRDs []string `json:"excludeCRDs"`
 	ExcludeApiPathes []string `json:"excludeApiPathes"`
 	RestoreAppApiPathes []string `json:"restoreAppApiPathes"`
+	RestoreNfsStorageClasses []string `json:"restoreNfsStorageClasses"`
 	RestoreOptions []string `json:"restoreOptions"`
 }
 

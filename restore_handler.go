@@ -138,6 +138,7 @@ func (c *Controller) updateRestoreStatus(restore *cbv1alpha1.Restore, phase, rea
 	restoreCopy := restore.DeepCopy()
 	restoreCopy.Status.Phase = phase
 	restoreCopy.Status.Reason = reason
+	klog.Infof("Restore:%s status %s => %s : %s", restore.ObjectMeta.Name, restore.Status.Phase, phase, reason)
 	restore, err := c.cbclientset.ClusterbackupV1alpha1().Restores(restore.Namespace).Update(restoreCopy)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to update restore status for " + restore.ObjectMeta.Name + " : " + err.Error())

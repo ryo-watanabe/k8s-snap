@@ -69,6 +69,15 @@ func (p *preference) preferedToRestore(path string) string {
 			return "Exclude"
 		}
 	}
+	// check storage classes
+	if strings.Contains(path, "/storageclasses/") {
+		for _, s := range p.pref.Spec.RestoreNfsStorageClasses {
+			if strings.Contains(path, "storageclasses/" + s) {
+				return "Restore"
+			}
+		}
+		return "Exclude"
+	}
 	// check PV/PVC
 	if strings.Contains(path, "/persistentvolumes/") {
 		return "PV"
@@ -200,6 +209,15 @@ func (p *preference) setServiceList(dir, restorePref string) error {
 		}
 	}
 	return nil
+}
+
+func (p *preference) isIncludedStorageClass(storageClassName string) bool {
+	for _, s := range p.pref.Spec.RestoreNfsStorageClasses {
+		if strings.HasPrefix(storageClassName, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // Util: is name in list

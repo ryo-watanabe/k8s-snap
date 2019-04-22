@@ -123,27 +123,6 @@ func restoreDir(dir, restorePref string, dyn dynamic.Interface, p *preference) e
 	return nil
 }
 
-func restorePV(dir string, dyn dynamic.Interface) error {
-	files, err := ioutil.ReadDir(filepath.Join(dir, "PV"))
-	if err != nil {
-		return err
-	}
-	for _, f := range files {
-		klog.Infof("---- %s", f.Name())
-		klog.Infof("@@@@@ Excluded : currently by-passed")
-	}
-
-	files, err = ioutil.ReadDir(filepath.Join(dir, "PVC"))
-	if err != nil {
-		return err
-	}
-	for _, f := range files {
-		klog.Infof("---- %s", f.Name())
-		klog.Infof("@@@@@ Excluded : currently by-passed")
-	}
-	return nil
-}
-
 // create a file
 func writeFile(filepath string, tarReader *tar.Reader) error {
 	file, err := os.Create(filepath)
@@ -244,7 +223,7 @@ func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference) er
 	// Restore PV/PVC
 	if p.isIn("PV") && p.isIn("PVC") {
 		klog.Info("Restore PV/PVC :")
-		err = restorePV(dir, dynamicClient)
+		err = restorePV(dir, dynamicClient, p)
 		if err != nil {
 			return err
 		}

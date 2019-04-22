@@ -125,6 +125,7 @@ func (c *Controller) updateBackupStatus(backup *cbv1alpha1.Backup, phase, reason
 	backupCopy := backup.DeepCopy()
 	backupCopy.Status.Phase = phase
 	backupCopy.Status.Reason = reason
+	klog.Infof("backup:%s status %s => %s : %s", backup.ObjectMeta.Name, backup.Status.Phase, phase, reason)
 	backup, err := c.cbclientset.ClusterbackupV1alpha1().Backups(backup.Namespace).Update(backupCopy)
 	if err != nil {
 		return backup, fmt.Errorf("Failed to update backup status for %s : %s", backup.ObjectMeta.Name, err.Error())

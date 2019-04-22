@@ -12,6 +12,7 @@ spec:
   excludeCRDs:
     - "crd.projectcalico.org"
   excludeApiPathes:
+  # prefix / prefix,contains
     - "/api/v1,bindings"
     - "/api/v1,componentstatuses"
     - "/api/v1,events"
@@ -46,8 +47,8 @@ spec:
     # - "/api/v1,configmaps"
     # - "/api/v1,endpoints"                                     # Restore endpoints not created with services.
     # - "/api/v1,namespaces"
-    # - "/api/v1,persistentvolumeclaims"                        # Restore PVs using nfs client provisioner only.
-    # - "/api/v1,persistentvolumes"                             # Restore PVCs using nfs client provisioner only.
+    # - "/api/v1,persistentvolumeclaims"                        # Restore restoreNfsStorageClass PVs bounded with PVCs.
+    # - "/api/v1,persistentvolumes"                             # Restore PVCs bounded to restoreNfsStorageClass PVs.
     # - "/api/v1,pods"                                          # Restore pods not owned by other apps.
     # - "/api/v1,podtemplates"
     # - "/api/v1,secrets"                                       # Restore secrets except serviceaccounts' token.
@@ -67,10 +68,11 @@ spec:
     # - "/apis/autoscaling,horizontalpodautoscalers"
     # - "/apis/batch,jobs"
     # - "/apis/batch,cronjobs"
-    # - "/apis/storage.k8s.io,storageclasses"                   # Restore storageclasses using nfs client provisioner only.
+    # - "/apis/storage.k8s.io,storageclasses"                   # Restore storageclasses matches restoreNfsStorageClass
     #######################################################################################################################
 
   restoreAppApiPathes:
+  # prefix / prefix,contains
   # Apps must be restored after other resources restored.
     - "/api/v1,pods"
     - "/api/v1,replicationcontrollers"
@@ -81,5 +83,8 @@ spec:
     - "/apis/autoscaling,horizontalpodautoscalers"
     - "/apis/batch,jobs"
     - "/apis/batch,cronjobs"
+  restoreNfsStorageClasses:
+  # prefix
+    - "managed-nfs-storage"
   restoreOptions: []
     # - "overwriteExistingResources"

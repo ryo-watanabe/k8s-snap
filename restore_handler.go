@@ -108,7 +108,7 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 		}
 
 		// do restore
-		err = cluster.Restore(restore, pref)
+		err = cluster.Restore(restore, pref, c.bucket)
 		if err != nil {
 			restore, err = c.updateRestoreStatus(restore, "Failed", err.Error())
 			if err != nil {

@@ -39,7 +39,7 @@ import (
 	informers "github.com/ryo-watanabe/k8s-backup/pkg/client/informers/externalversions/clusterbackup/v1alpha1"
 	listers "github.com/ryo-watanabe/k8s-backup/pkg/client/listers/clusterbackup/v1alpha1"
 
-	//"github.com/ryo-watanabe/k8s-backup/pkg/resources"
+	"github.com/ryo-watanabe/k8s-backup/pkg/objectstore"
 )
 
 const controllerAgentName = "k8s-backup"
@@ -66,6 +66,7 @@ type Controller struct {
 
 	namespace string
 	labels map[string]string
+	bucket *objectstore.Bucket
 }
 
 // NewController returns a new controller
@@ -74,7 +75,8 @@ func NewController(
 	cbclientset clientset.Interface,
 	backupInformer informers.BackupInformer,
 	restoreInformer informers.RestoreInformer,
-	namespace string) *Controller {
+	namespace string,
+	bucket *objectstore.Bucket) *Controller {
 
 	// Create event broadcaster
 	// Add hatoba-proxy-controller types to the default Kubernetes Scheme so Events can be
@@ -97,6 +99,7 @@ func NewController(
 		restoreQueue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Restores"),
 		recorder:          recorder,
 		namespace:         namespace,
+		bucket:            bucket,
 		labels:  map[string]string{
 			"app":        "k8s-backup",
 			"controller": "k8s-backup-controller",
@@ -137,6 +140,15 @@ func (c *Controller) Run(backupthreads, restorethreads int, stopCh <-chan struct
 
 	//listOptions := metav1.ListOptions{IncludeUninitialized: false}
 	//getOptions := metav1.GetOptions{IncludeUninitialized: false}
+
+	klog.Info("Checking objectstore bucket")
+	found, err := c.bucket.ChkBucket()
+	if err != nil {
+		klog.Fatalf("Check bucket error : %s", err.Error())
+	}
+	if !found {
+		klog.Fatalf("Bucket %s not found", c.bucket.BucketName)
+	}
 
 	// Start the informer factories to begin populating the informer caches
 	klog.Info("Starting backup controller")

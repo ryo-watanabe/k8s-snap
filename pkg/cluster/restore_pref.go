@@ -31,10 +31,35 @@ type preference struct {
 	includedClusterRoleBindings []string
 	serviceList []string
 	dirs []os.FileInfo
+	cntRestored int
+	cntExcluded int
+	cntAlreadyExists int
+	cntOtherErrors int
 }
 
 func newPreference(pref *cbv1alpha1.RestorePreference) *preference {
-	return &preference{ pref: pref }
+	return &preference{
+		pref: pref,
+		cntRestored: 0,
+		cntExcluded: 0,
+		cntAlreadyExists: 0,
+		cntOtherErrors: 0,
+	}
+}
+
+// count up funcs
+func (p *preference) cntUpExcluded() {
+	p.cntExcluded = p.cntExcluded + 1
+}
+func (p *preference) cntUpRestored() {
+	p.cntRestored = p.cntRestored + 1
+}
+func (p *preference) cntUpCnnotRestore(error string) {
+	if strings.Contains(error, "already exists") {
+		p.cntAlreadyExists = p.cntAlreadyExists + 1
+	} else {
+		p.cntOtherErrors = p.cntOtherErrors + 1
+	}
 }
 
 func (p *preference) preferedToRestore(path string) string {

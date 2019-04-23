@@ -76,12 +76,16 @@ func (c *Controller) backupSyncHandler(key string, queueonly bool) error {
 	// Get the Backup resource with this namespace/name.
 	backup, err := c.backupLister.Backups(namespace).Get(name)
 
-	// if deleted.
 	if err != nil {
+		// if deleted.
 		if errors.IsNotFound(err) {
-			// TODO delete backhp data.
-
-			// In deleting, exit sync handler here.
+			// Delete backup data.
+			klog.Infof("Deleting backup %s data from bucket", name)
+			err = c.bucket.Delete(name + ".tgz")
+			if err != nil {
+				return err
+			}
+			// When deleting a backup, exit sync handler here.
 			return nil
 		} else {
 			return err
@@ -95,7 +99,7 @@ func (c *Controller) backupSyncHandler(key string, queueonly bool) error {
 		}
 
 		// do backup
-		err = cluster.Backup(backup)
+		err = cluster.Backup(backup, c.bucket)
 		if err != nil {
 			backup, err = c.updateBackupStatus(backup, "Failed", err.Error())
 			if err != nil {

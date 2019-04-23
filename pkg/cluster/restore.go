@@ -16,6 +16,7 @@ import (
 	"k8s.io/klog"
 
 	cbv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup/v1alpha1"
+	"github.com/ryo-watanabe/k8s-backup/pkg/objectstore"
 )
 
 func loadItem(item *unstructured.Unstructured, filepath string) error {
@@ -78,6 +79,7 @@ func restoreDir(dir, restorePref string, dyn dynamic.Interface, p *preference) e
 			for _, owner := range owners {
 				klog.Infof("  owner : %s %s", owner.Kind, owner.Name)
 			}
+			p.cntUpExcluded()
 			continue
 		}
 
@@ -86,16 +88,19 @@ func restoreDir(dir, restorePref string, dyn dynamic.Interface, p *preference) e
 		case "Secret":
 			if item.Object["type"] == "kubernetes.io/service-account-token" {
 				klog.Infof("@@@@@ Excluded : service account token secret")
+				p.cntUpExcluded()
 				continue
 			}
 		case "ClusterRole":
 			if !isInList(item.GetName(), p.includedClusterRoles) {
 				klog.Infof("@@@@@ Excluded : not binding to user namespaces")
+				p.cntUpExcluded()
 				continue
 			}
 		case "ClusterRoleBinding":
 			if !isInList(item.GetName(), p.includedClusterRoleBindings) {
 				klog.Infof("@@@@@ Excluded : not binding to user namespaces")
+				p.cntUpExcluded()
 				continue
 			}
 		case "PersistentVolume":
@@ -105,6 +110,7 @@ func restoreDir(dir, restorePref string, dyn dynamic.Interface, p *preference) e
 		case "Endpoints":
 			if isInList(item.GetNamespace() + "/" + item.GetName(), p.serviceList) {
 				klog.Infof("@@@@@ Excluded : a same name service exists")
+				p.cntUpExcluded()
 				continue
 			}
 		}
@@ -115,8 +121,10 @@ func restoreDir(dir, restorePref string, dyn dynamic.Interface, p *preference) e
 		_, err = createItem(&item, dyn)
 		if err != nil {
 			klog.Warningf("@@@@@ Cannot create item : %s", err.Error())
+			p.cntUpCnnotRestore(err.Error())
 		} else {
 			klog.Infof("@@@@@ Restored @@@@@")
+			p.cntUpRestored()
 		}
 
 	}
@@ -137,12 +145,22 @@ func writeFile(filepath string, tarReader *tar.Reader) error {
 }
 
 // Restore k8s resources
-func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference) error {
+func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket *objectstore.Bucket) error {
 
 	p := newPreference(pref)
 
+	// Download
+	klog.Infof("Downloading file %s", restore.Spec.BackupName + ".tgz")
+	backupFile, err := os.Create("/tmp/" + restore.Spec.BackupName + ".tgz")
+	defer backupFile.Close()
+	err = bucket.Download(backupFile, restore.Spec.BackupName + ".tgz")
+	if err != nil {
+		return err
+	}
+	backupFile.Close()
+
 	// Read tar.gz
-	backupFile, err := os.Open("/mnt/" + restore.Spec.BackupName + ".tgz")
+	backupFile, err = os.Open("/tmp/" + restore.Spec.BackupName + ".tgz")
 	if err != nil {
 		return err
 	}
@@ -174,6 +192,7 @@ func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference) er
 
 			if restorePref == "Exclude" {
 				klog.Infof("-- [%s] %s", restorePref, path)
+				p.cntUpExcluded()
 				continue
 			}
 
@@ -249,6 +268,13 @@ func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference) er
 	if err != nil {
 		return err
 	}
+
+	// result
+	klog.Info("Restore completed ======")
+	klog.Infof("Excluded       : %d", p.cntExcluded)
+	klog.Infof("Restored       : %d", p.cntRestored)
+	klog.Infof("Already exists : %d", p.cntAlreadyExists)
+	klog.Infof("Other errors   : %d", p.cntOtherErrors)
 
 	return nil
 }

@@ -14,6 +14,7 @@ import (
 	"k8s.io/klog"
 
 	cbv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup/v1alpha1"
+	"github.com/ryo-watanabe/k8s-backup/pkg/objectstore"
 )
 
 func matchVerbs(groupVersion string, r *metav1.APIResource) bool {
@@ -40,7 +41,7 @@ func makeResourcePath(backupName, group, version, resourceName, namespace, name 
 }
 
 // Backup k8s resources
-func Backup(backup *cbv1alpha1.Backup) error {
+func Backup(backup *cbv1alpha1.Backup, bucket *objectstore.Bucket) error {
 
 	// kubeClient for exxternal cluster.
 	kubeClient, err := buildKubeClient(backup.Spec.Kubeconfig)
@@ -63,7 +64,7 @@ func Backup(backup *cbv1alpha1.Backup) error {
 	}
 
 	// backup file
-	backupFile, err := os.Create("/mnt/" + backup.ObjectMeta.Name + ".tgz")
+	backupFile, err := os.Create("/tmp/" + backup.ObjectMeta.Name + ".tgz")
 	if err != nil {
 		return err
 	}
@@ -127,6 +128,17 @@ func Backup(backup *cbv1alpha1.Backup) error {
 	tarWriter.Close()
 	tgz.Close()
 	backupFile.Close()
+
+	backupFile, err = os.Open("/tmp/" + backup.ObjectMeta.Name + ".tgz")
+	defer backupFile.Close()
+	if err != nil {
+		return err
+	}
+	klog.Infof("Uploading file %s", backup.ObjectMeta.Name + ".tgz")
+	err = bucket.Upload(backupFile, backup.ObjectMeta.Name + ".tgz")
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

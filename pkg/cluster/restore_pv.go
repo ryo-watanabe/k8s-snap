@@ -52,6 +52,7 @@ func restorePV(dir string, dyn dynamic.Interface, p *preference) error {
 		storageClassName := pvc_spec["storageClassName"].(string)
 		if !p.isIncludedStorageClass(storageClassName) {
 			klog.Infof("@@@@ storageclass %s not included", storageClassName)
+			p.cntUpExcluded()
 			continue
 		}
 
@@ -59,6 +60,7 @@ func restorePV(dir string, dyn dynamic.Interface, p *preference) error {
 		volumeName := pvc_spec["volumeName"].(string)
 		if volumeName == "" {
 			klog.Infof("@@@@ PV not bounded")
+			p.cntUpExcluded()
 			continue
 		}
 
@@ -80,6 +82,7 @@ func restorePV(dir string, dyn dynamic.Interface, p *preference) error {
 		}
 		if !pv_found {
 			klog.Infof("@@@@ PV not found")
+			p.cntUpExcluded()
 			continue
 		}
 
@@ -93,9 +96,11 @@ func restorePV(dir string, dyn dynamic.Interface, p *preference) error {
 		_, err = createItem(&pv_item, dyn)
 		if err != nil {
 			klog.Warningf("@@@@@ Cannot create item : %s", err.Error())
+			p.cntUpCnnotRestore(err.Error())
 			continue
 		} else {
 			klog.Infof("     @@@@@ Restored @@@@@")
+			p.cntUpRestored()
 		}
 
 		// Then restore PVC
@@ -110,9 +115,11 @@ func restorePV(dir string, dyn dynamic.Interface, p *preference) error {
 		_, err = createItem(&pvc_item, dyn)
 		if err != nil {
 			klog.Warningf("@@@@@ Cannot create item : %s", err.Error())
+			p.cntUpCnnotRestore(err.Error())
 			continue
 		} else {
 			klog.Infof("     @@@@@ Restored @@@@@")
+			p.cntUpRestored()
 		}
 
 		// Wait for bound

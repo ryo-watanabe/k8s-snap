@@ -25,27 +25,32 @@ import (
 	rest "k8s.io/client-go/rest"
 )
 
-type CustomerclusterV1alpha1Interface interface {
+type ClusterbackupV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	BackupsGetter
 	RestoresGetter
+	RestorePreferencesGetter
 }
 
-// CustomerclusterV1alpha1Client is used to interact with features provided by the customercluster.hatoba group.
-type CustomerclusterV1alpha1Client struct {
+// ClusterbackupV1alpha1Client is used to interact with features provided by the clusterbackup.ssl group.
+type ClusterbackupV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *CustomerclusterV1alpha1Client) Backups(namespace string) BackupInterface {
+func (c *ClusterbackupV1alpha1Client) Backups(namespace string) BackupInterface {
 	return newBackups(c, namespace)
 }
 
-func (c *CustomerclusterV1alpha1Client) Restores(namespace string) RestoreInterface {
+func (c *ClusterbackupV1alpha1Client) Restores(namespace string) RestoreInterface {
 	return newRestores(c, namespace)
 }
 
-// NewForConfig creates a new CustomerclusterV1alpha1Client for the given config.
-func NewForConfig(c *rest.Config) (*CustomerclusterV1alpha1Client, error) {
+func (c *ClusterbackupV1alpha1Client) RestorePreferences(namespace string) RestorePreferenceInterface {
+	return newRestorePreferences(c, namespace)
+}
+
+// NewForConfig creates a new ClusterbackupV1alpha1Client for the given config.
+func NewForConfig(c *rest.Config) (*ClusterbackupV1alpha1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -54,12 +59,12 @@ func NewForConfig(c *rest.Config) (*CustomerclusterV1alpha1Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &CustomerclusterV1alpha1Client{client}, nil
+	return &ClusterbackupV1alpha1Client{client}, nil
 }
 
-// NewForConfigOrDie creates a new CustomerclusterV1alpha1Client for the given config and
+// NewForConfigOrDie creates a new ClusterbackupV1alpha1Client for the given config and
 // panics if there is an error in the config.
-func NewForConfigOrDie(c *rest.Config) *CustomerclusterV1alpha1Client {
+func NewForConfigOrDie(c *rest.Config) *ClusterbackupV1alpha1Client {
 	client, err := NewForConfig(c)
 	if err != nil {
 		panic(err)
@@ -67,9 +72,9 @@ func NewForConfigOrDie(c *rest.Config) *CustomerclusterV1alpha1Client {
 	return client
 }
 
-// New creates a new CustomerclusterV1alpha1Client for the given RESTClient.
-func New(c rest.Interface) *CustomerclusterV1alpha1Client {
-	return &CustomerclusterV1alpha1Client{c}
+// New creates a new ClusterbackupV1alpha1Client for the given RESTClient.
+func New(c rest.Interface) *ClusterbackupV1alpha1Client {
+	return &ClusterbackupV1alpha1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {
@@ -87,7 +92,7 @@ func setConfigDefaults(config *rest.Config) error {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *CustomerclusterV1alpha1Client) RESTClient() rest.Interface {
+func (c *ClusterbackupV1alpha1Client) RESTClient() rest.Interface {
 	if c == nil {
 		return nil
 	}

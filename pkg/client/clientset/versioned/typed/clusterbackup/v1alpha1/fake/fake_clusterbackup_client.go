@@ -24,21 +24,25 @@ import (
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeCustomerclusterV1alpha1 struct {
+type FakeClusterbackupV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeCustomerclusterV1alpha1) Backups(namespace string) v1alpha1.BackupInterface {
+func (c *FakeClusterbackupV1alpha1) Backups(namespace string) v1alpha1.BackupInterface {
 	return &FakeBackups{c, namespace}
 }
 
-func (c *FakeCustomerclusterV1alpha1) Restores(namespace string) v1alpha1.RestoreInterface {
+func (c *FakeClusterbackupV1alpha1) Restores(namespace string) v1alpha1.RestoreInterface {
 	return &FakeRestores{c, namespace}
+}
+
+func (c *FakeClusterbackupV1alpha1) RestorePreferences(namespace string) v1alpha1.RestorePreferenceInterface {
+	return &FakeRestorePreferences{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeCustomerclusterV1alpha1) RESTClient() rest.Interface {
+func (c *FakeClusterbackupV1alpha1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

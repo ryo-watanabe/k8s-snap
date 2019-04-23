@@ -52,11 +52,13 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=customercluster.hatoba, Version=v1alpha1
+	// Group=clusterbackup.ssl, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("backups"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Customercluster().V1alpha1().Backups().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Clusterbackup().V1alpha1().Backups().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("restores"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Customercluster().V1alpha1().Restores().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Clusterbackup().V1alpha1().Restores().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("restorepreferences"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Clusterbackup().V1alpha1().RestorePreferences().Informer()}, nil
 
 	}
 

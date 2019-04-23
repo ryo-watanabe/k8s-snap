@@ -28,6 +28,8 @@ type Interface interface {
 	Backups() BackupInformer
 	// Restores returns a RestoreInformer.
 	Restores() RestoreInformer
+	// RestorePreferences returns a RestorePreferenceInformer.
+	RestorePreferences() RestorePreferenceInformer
 }
 
 type version struct {
@@ -49,4 +51,9 @@ func (v *version) Backups() BackupInformer {
 // Restores returns a RestoreInformer.
 func (v *version) Restores() RestoreInformer {
 	return &restoreInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// RestorePreferences returns a RestorePreferenceInformer.
+func (v *version) RestorePreferences() RestorePreferenceInformer {
+	return &restorePreferenceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

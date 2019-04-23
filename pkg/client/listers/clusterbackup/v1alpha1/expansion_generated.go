@@ -33,3 +33,11 @@ type RestoreListerExpansion interface{}
 // RestoreNamespaceListerExpansion allows custom methods to be added to
 // RestoreNamespaceLister.
 type RestoreNamespaceListerExpansion interface{}
+
+// RestorePreferenceListerExpansion allows custom methods to be added to
+// RestorePreferenceLister.
+type RestorePreferenceListerExpansion interface{}
+
+// RestorePreferenceNamespaceListerExpansion allows custom methods to be added to
+// RestorePreferenceNamespaceLister.
+type RestorePreferenceNamespaceListerExpansion interface{}

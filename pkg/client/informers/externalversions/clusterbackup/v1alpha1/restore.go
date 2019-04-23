@@ -61,13 +61,13 @@ func NewFilteredRestoreInformer(client versioned.Interface, namespace string, re
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CustomerclusterV1alpha1().Restores(namespace).List(options)
+				return client.ClusterbackupV1alpha1().Restores(namespace).List(options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CustomerclusterV1alpha1().Restores(namespace).Watch(options)
+				return client.ClusterbackupV1alpha1().Restores(namespace).Watch(options)
 			},
 		},
 		&clusterbackupv1alpha1.Restore{},

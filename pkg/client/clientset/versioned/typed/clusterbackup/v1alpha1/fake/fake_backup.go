@@ -30,13 +30,13 @@ import (
 
 // FakeBackups implements BackupInterface
 type FakeBackups struct {
-	Fake *FakeCustomerclusterV1alpha1
+	Fake *FakeClusterbackupV1alpha1
 	ns   string
 }
 
-var backupsResource = schema.GroupVersionResource{Group: "customercluster.hatoba", Version: "v1alpha1", Resource: "backups"}
+var backupsResource = schema.GroupVersionResource{Group: "clusterbackup.ssl", Version: "v1alpha1", Resource: "backups"}
 
-var backupsKind = schema.GroupVersionKind{Group: "customercluster.hatoba", Version: "v1alpha1", Kind: "Backup"}
+var backupsKind = schema.GroupVersionKind{Group: "clusterbackup.ssl", Version: "v1alpha1", Kind: "Backup"}
 
 // Get takes name of the backup, and returns the corresponding backup object, and an error if there is any.
 func (c *FakeBackups) Get(name string, options v1.GetOptions) (result *v1alpha1.Backup, err error) {

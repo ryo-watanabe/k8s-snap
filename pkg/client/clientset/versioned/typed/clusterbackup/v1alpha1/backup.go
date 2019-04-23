@@ -56,7 +56,7 @@ type backups struct {
 }
 
 // newBackups returns a Backups
-func newBackups(c *CustomerclusterV1alpha1Client, namespace string) *backups {
+func newBackups(c *ClusterbackupV1alpha1Client, namespace string) *backups {
 	return &backups{
 		client: c.RESTClient(),
 		ns:     namespace,

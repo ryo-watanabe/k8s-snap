@@ -75,3 +75,8 @@ var _ clientset.Interface = &Clientset{}
 func (c *Clientset) ClusterbackupV1alpha1() clusterbackupv1alpha1.ClusterbackupV1alpha1Interface {
 	return &fakeclusterbackupv1alpha1.FakeClusterbackupV1alpha1{Fake: &c.Fake}
 }
+
+// Clusterbackup retrieves the ClusterbackupV1alpha1Client
+func (c *Clientset) Clusterbackup() clusterbackupv1alpha1.ClusterbackupV1alpha1Interface {
+	return &fakeclusterbackupv1alpha1.FakeClusterbackupV1alpha1{Fake: &c.Fake}
+}

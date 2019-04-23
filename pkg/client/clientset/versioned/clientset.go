@@ -28,6 +28,8 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	ClusterbackupV1alpha1() clusterbackupv1alpha1.ClusterbackupV1alpha1Interface
+	// Deprecated: please explicitly pick a version if possible.
+	Clusterbackup() clusterbackupv1alpha1.ClusterbackupV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -39,6 +41,12 @@ type Clientset struct {
 
 // ClusterbackupV1alpha1 retrieves the ClusterbackupV1alpha1Client
 func (c *Clientset) ClusterbackupV1alpha1() clusterbackupv1alpha1.ClusterbackupV1alpha1Interface {
+	return c.clusterbackupV1alpha1
+}
+
+// Deprecated: Clusterbackup retrieves the default version of ClusterbackupClient.
+// Please explicitly pick a version.
+func (c *Clientset) Clusterbackup() clusterbackupv1alpha1.ClusterbackupV1alpha1Interface {
 	return c.clusterbackupV1alpha1
 }
 

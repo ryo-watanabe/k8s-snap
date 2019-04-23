@@ -19,7 +19,7 @@ limitations under the License.
 package versioned
 
 import (
-	customerclusterv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned/typed/clusterbackup/v1alpha1"
+	clusterbackupv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned/typed/clusterbackup/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -27,19 +27,27 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	CustomerclusterV1alpha1() customerclusterv1alpha1.CustomerclusterV1alpha1Interface
+	ClusterbackupV1alpha1() clusterbackupv1alpha1.ClusterbackupV1alpha1Interface
+	// Deprecated: please explicitly pick a version if possible.
+	Clusterbackup() clusterbackupv1alpha1.ClusterbackupV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	customerclusterV1alpha1 *customerclusterv1alpha1.CustomerclusterV1alpha1Client
+	clusterbackupV1alpha1 *clusterbackupv1alpha1.ClusterbackupV1alpha1Client
 }
 
-// CustomerclusterV1alpha1 retrieves the CustomerclusterV1alpha1Client
-func (c *Clientset) CustomerclusterV1alpha1() customerclusterv1alpha1.CustomerclusterV1alpha1Interface {
-	return c.customerclusterV1alpha1
+// ClusterbackupV1alpha1 retrieves the ClusterbackupV1alpha1Client
+func (c *Clientset) ClusterbackupV1alpha1() clusterbackupv1alpha1.ClusterbackupV1alpha1Interface {
+	return c.clusterbackupV1alpha1
+}
+
+// Deprecated: Clusterbackup retrieves the default version of ClusterbackupClient.
+// Please explicitly pick a version.
+func (c *Clientset) Clusterbackup() clusterbackupv1alpha1.ClusterbackupV1alpha1Interface {
+	return c.clusterbackupV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -58,7 +66,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.customerclusterV1alpha1, err = customerclusterv1alpha1.NewForConfig(&configShallowCopy)
+	cs.clusterbackupV1alpha1, err = clusterbackupv1alpha1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +82,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.customerclusterV1alpha1 = customerclusterv1alpha1.NewForConfigOrDie(c)
+	cs.clusterbackupV1alpha1 = clusterbackupv1alpha1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -83,7 +91,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.customerclusterV1alpha1 = customerclusterv1alpha1.New(c)
+	cs.clusterbackupV1alpha1 = clusterbackupv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

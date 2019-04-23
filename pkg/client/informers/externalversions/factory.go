@@ -172,9 +172,9 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Customercluster() clusterbackup.Interface
+	Clusterbackup() clusterbackup.Interface
 }
 
-func (f *sharedInformerFactory) Customercluster() clusterbackup.Interface {
+func (f *sharedInformerFactory) Clusterbackup() clusterbackup.Interface {
 	return clusterbackup.New(f, f.namespace, f.tweakListOptions)
 }

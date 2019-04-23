@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned"
-	customerclusterv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned/typed/clusterbackup/v1alpha1"
-	fakecustomerclusterv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned/typed/clusterbackup/v1alpha1/fake"
+	clusterbackupv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned/typed/clusterbackup/v1alpha1"
+	fakeclusterbackupv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned/typed/clusterbackup/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -71,7 +71,12 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 
 var _ clientset.Interface = &Clientset{}
 
-// CustomerclusterV1alpha1 retrieves the CustomerclusterV1alpha1Client
-func (c *Clientset) CustomerclusterV1alpha1() customerclusterv1alpha1.CustomerclusterV1alpha1Interface {
-	return &fakecustomerclusterv1alpha1.FakeCustomerclusterV1alpha1{Fake: &c.Fake}
+// ClusterbackupV1alpha1 retrieves the ClusterbackupV1alpha1Client
+func (c *Clientset) ClusterbackupV1alpha1() clusterbackupv1alpha1.ClusterbackupV1alpha1Interface {
+	return &fakeclusterbackupv1alpha1.FakeClusterbackupV1alpha1{Fake: &c.Fake}
+}
+
+// Clusterbackup retrieves the ClusterbackupV1alpha1Client
+func (c *Clientset) Clusterbackup() clusterbackupv1alpha1.ClusterbackupV1alpha1Interface {
+	return &fakeclusterbackupv1alpha1.FakeClusterbackupV1alpha1{Fake: &c.Fake}
 }

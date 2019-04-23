@@ -56,7 +56,7 @@ type restores struct {
 }
 
 // newRestores returns a Restores
-func newRestores(c *CustomerclusterV1alpha1Client, namespace string) *restores {
+func newRestores(c *ClusterbackupV1alpha1Client, namespace string) *restores {
 	return &restores{
 		client: c.RESTClient(),
 		ns:     namespace,

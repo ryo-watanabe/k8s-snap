@@ -1,2 +1,3 @@
 FROM alpine
-COPY hatoba-backup-controller /
+RUN apk add --no-cache ca-certificates
+COPY k8s-backup-controller /

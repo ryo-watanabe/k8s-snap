@@ -79,8 +79,8 @@ func NewController(
 	bucket *objectstore.Bucket) *Controller {
 
 	// Create event broadcaster
-	// Add hatoba-proxy-controller types to the default Kubernetes Scheme so Events can be
-	// logged for hatoba-proxy-controller types.
+	// Add k8s-backup-controller types to the default Kubernetes Scheme so Events can be
+	// logged for k8s-backup-controller types.
 	utilruntime.Must(ccscheme.AddToScheme(scheme.Scheme))
 	klog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()

@@ -1,8 +1,28 @@
-apiVersion: customercluster.hatoba/v1alpha1
+apiVersion: clusterbackup.ssl/v1alpha1
 kind: Restore
 metadata:
-  name: cluster01-backup01-restore01
-  namespace: hatoba-backup
+  name: cluster02-cluster01-001-001
+  namespace: k8s-backup
 spec:
-  hatobaId: cluster01
-  backupName: cluster01-backup01
+  clusterName: cluster02
+  backupName: cluster01-001
+  restorePreferenceName: user-backup
+  kubeconfig: |
+    apiVersion: v1
+    clusters:
+    - cluster:
+        certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN3akND...
+        server: https://cluster01.kubernetes.111.111.111.111.nip.io:6443
+      name: cluster
+    contexts:
+    - context:
+        cluster: cluster
+        user: remote-user
+      name: context
+    current-context: context
+    kind: Config
+    preferences: {}
+    users:
+    - name: remote-user
+      user:
+        token: eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVz....

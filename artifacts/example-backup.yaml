@@ -2,7 +2,7 @@ apiVersion: clusterbackup.ssl/v1alpha1
 kind: Backup
 metadata:
   name: cluster01-001
-  namespace: cluster-backup
+  namespace: k8s-backup
 spec:
   clusterName: cluster01
   kubeconfig: |

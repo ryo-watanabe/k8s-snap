@@ -1,27 +1,34 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hatoba-backup-controller
-  namespace: hatoba-backup
+  name: k8s-backup-controller
+  namespace: k8s-backup
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: hatoba-backup-controller
+      app: k8s-backup-controller
   template:
     metadata:
       labels:
-        app: hatoba-backup-controller
+        app: k8s-backup-controller
     spec:
       containers:
-        - name: hatoba-backup-controller
-          image: container-registry.devops.nifcloud.net/x_nke/hatoba-backup-controller:[TAG]
+        - name: k8s-backup-controller
+          image: [image]:[TAG]
+          env:
+            - name: AWS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: cloud-credential
+                  key: accesskey
+            - name: AWS_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: cloud-credential
+                  key: secretkey
           command:
-            - /hatoba-backup-controller
-            - --arkimage=haproxy:gcr.io/heptio-images/ark:v0.10.0
-            - --kubectlimage=lachlanevenson/k8s-kubectl
-            - --haproxyimage=haproxy:1.8-alpine
-            - --namespace=hatoba-backup
-            - --ark-namespace=heptio-ark
-      imagePullSecrets:
-      - name: myregistrykey
+            - /k8s-backup-controller
+            - --namespace=k8s-backup
+            - --awsregion=ap-northeast-1
+            - --bucketname=k8s-backup

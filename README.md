@@ -36,11 +36,11 @@ $ /k8s-backup-controller \
 |namespace|k8s-backup|Namespace for k8s-backup|Optional|
 |backupthreads|5|Number of backup threads|Optional|
 |restorethreads|2|Number of restore threads|Optional|
-|awsregion| |Set S3 Region|Reuired|
+|awsregion| |Set S3 Region|Required|
 |awsendpoint| |Set S3 Endpoint for S3-compatible object stores|Optional|
 |awsaccesskey| |Set S3 access key here or set environment variable AWS_ACCESS_KEY|Optional|
 |awssecretkey| |Set S3 secret key here or set environment variable AWS_SECRET_KEY|Optional|
-|bucketname| |S3 bucket name|Reuired|
+|bucketname| |S3 bucket name|Required|
 
 ## Deploy
 ````

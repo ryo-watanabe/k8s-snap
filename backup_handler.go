@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -115,6 +116,10 @@ func (c *Controller) backupSyncHandler(key string, queueonly bool) error {
 	}
 
 	if backup.Status.Phase == "" {
+		// Check TTL string
+		if backup.Spec.TTL.Duration == 0 {
+			backup.Spec.TTL.Duration = 24*30*time.Hour
+		}
 		backup, err = c.updateBackupStatus(backup, "InQueue", "")
 		if err != nil {
 			return err

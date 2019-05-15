@@ -2,10 +2,12 @@ package cluster
 
 import (
 	"fmt"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/clientcmd"
-	//"k8s.io/klog"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+        corev1 "k8s.io/api/core/v1"
 )
 
 // Setup Kubernetes client for target cluster.
@@ -44,4 +46,26 @@ func buildDynamicClient(kubeconfig string) (dynamic.Interface, error) {
 		return nil, fmt.Errorf("Error building dynamic client: %s", err.Error())
 	}
 	return dynamicClient, err
+}
+
+func ConfigMapMarker(kubeClient *kubernetes.Clientset, name string) (*corev1.ConfigMap, error) {
+	configMap := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+	}
+	configMap, err := kubeClient.CoreV1().ConfigMaps("default").Create(configMap)
+	if err != nil {
+		return nil, err
+	}
+	err = kubeClient.CoreV1().ConfigMaps("default").Delete(name, &metav1.DeleteOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return configMap, nil
 }

@@ -66,6 +66,7 @@ func main() {
 	//klog.Info("Set logs output to stderr.")
 	//klog.Flush()
 
+	////// For client-go > 8.0 ??
 	klog.InitFlags(nil)
 	flag.Set("logtostderr", "true")
 	flag.Parse()

@@ -20,12 +20,20 @@ type Backup struct {
 type BackupSpec struct {
 	ClusterName string `json:"clusterName"`
 	Kubeconfig string `json:"kubeconfig"`
+	TTL metav1.Duration `json:"ttl"`
 }
 
 // FooStatus is the status for a Foo resource
 type BackupStatus struct {
 	Phase string `json:"phase"`
 	Reason string `json:"reason"`
+	BackupResourceVersion string `json: "resourceVersion"`
+	BackupTimestamp metav1.Time `json:"backupTimestamp"`
+	AvailableUntil metav1.Time `json:"availableUntil"`
+	Contents []string `json:"contents"`
+	StoredFileSize int64 `json:"storedFileSize"`
+	StoredTimestamp metav1.Time `json:"storedTimestamp"`
+	NumberOfContents int32 `json:"numberOfContents"`
 }
 
 // +genclient

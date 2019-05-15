@@ -3,6 +3,7 @@ package objectstore
 import (
 	"os"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -12,6 +13,12 @@ import (
 
 	"k8s.io/klog"
 )
+
+type ObjectInfo struct {
+	Name string
+	Size int64
+	Timestamp time.Time
+}
 
 type Bucket struct {
 	awsAccessKey string
@@ -130,4 +137,66 @@ func (b *Bucket) Delete(filename string) error {
 	    Key:    aws.String(filename),
 	})
 	return err
+}
+
+func (b *Bucket) GetObjectInfo(filename string) (*ObjectInfo, error) {
+	// set session
+	sess, err := b.setSession()
+	if err != nil {
+		return nil, err
+	}
+
+	// list objects
+	svc := s3.New(sess)
+	result, err := svc.ListObjects(&s3.ListObjectsInput{
+		Bucket: aws.String(b.BucketName),
+		Prefix: aws.String(filename),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// find in list
+	for _, obj := range result.Contents {
+	    if aws.StringValue(obj.Key) == filename {
+		    objInfo := ObjectInfo{
+			    Name: filename,
+			    Size: aws.Int64Value(obj.Size),
+			    Timestamp: aws.TimeValue(obj.LastModified),
+		    }
+		    return &objInfo, nil
+	    }
+	}
+
+	return nil, fmt.Errorf("Object %s not found in bucket %s.", filename, b.BucketName)
+}
+
+func (b *Bucket) ListObjectInfo() ([]ObjectInfo, error) {
+	// set session
+	sess, err := b.setSession()
+	if err != nil {
+		return nil, err
+	}
+
+	// list objects
+	svc := s3.New(sess)
+	result, err := svc.ListObjects(&s3.ListObjectsInput{
+		Bucket: aws.String(b.BucketName),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// make ObjectInfo list
+	objInfoList := make([]ObjectInfo, 0)
+	for _, obj := range result.Contents {
+		objInfo := ObjectInfo{
+			Name: aws.StringValue(obj.Key),
+			Size: aws.Int64Value(obj.Size),
+			Timestamp: aws.TimeValue(obj.LastModified),
+		}
+		objInfoList = append(objInfoList, objInfo)
+	}
+
+	return objInfoList, nil
 }

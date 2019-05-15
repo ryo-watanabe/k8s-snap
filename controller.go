@@ -150,6 +150,15 @@ func (c *Controller) Run(backupthreads, restorethreads int, stopCh <-chan struct
 		klog.Fatalf("Bucket %s not found", c.bucket.BucketName)
 	}
 
+	objList, err := c.bucket.ListObjectInfo()
+	if err != nil {
+		klog.Fatalf("List objects error : %s", err.Error())
+	}
+	klog.Infof("Objects in bucket %s:", c.bucket.BucketName)
+	for _, obj := range objList {
+		klog.Infof("- filename:%s size:%d timestamp:%s", obj.Name, obj.Size, obj.Timestamp)
+	}
+
 	// Start the informer factories to begin populating the informer caches
 	klog.Info("Starting backup controller")
 

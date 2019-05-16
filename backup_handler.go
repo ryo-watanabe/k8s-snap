@@ -5,6 +5,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
@@ -12,6 +13,7 @@ import (
 
 	cbv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup/v1alpha1"
 	"github.com/ryo-watanabe/k8s-backup/pkg/cluster"
+	"github.com/ryo-watanabe/k8s-backup/pkg/objectstore"
 )
 
 // runWorker is a long-running function that will continually call the
@@ -78,14 +80,7 @@ func (c *Controller) backupSyncHandler(key string, queueonly bool) error {
 	backup, err := c.backupLister.Backups(namespace).Get(name)
 
 	if err != nil {
-		// if deleted.
 		if errors.IsNotFound(err) {
-			// Delete backup data.
-			klog.Infof("Deleting backup %s data from bucket", name)
-			err = c.bucket.Delete(name + ".tgz")
-			if err != nil {
-				return err
-			}
 			// When deleting a backup, exit sync handler here.
 			return nil
 		} else {
@@ -99,8 +94,18 @@ func (c *Controller) backupSyncHandler(key string, queueonly bool) error {
 			return err
 		}
 
+		// bucket
+		bucket, err := c.getBucket(backup.Spec.ObjectstoreConfig)
+		if err != nil {
+			backup, err = c.updateBackupStatus(backup, "Failed", err.Error())
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+
 		// do backup
-		err = cluster.Backup(backup, c.bucket)
+		err = cluster.Backup(backup, bucket)
 		if err != nil {
 			backup, err = c.updateBackupStatus(backup, "Failed", err.Error())
 			if err != nil {
@@ -148,9 +153,53 @@ func (c *Controller) updateBackupStatus(backup *cbv1alpha1.Backup, phase, reason
 func (c *Controller) enqueueBackup(obj interface{}) {
 	var key string
 	var err error
+	//klog.Info("backup enqueued : %#v", obj)
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
 		runtime.HandleError(err)
 		return
 	}
 	c.backupQueue.AddRateLimited(key)
+}
+
+// Delete backup files on objectstore when Backup resource deleted
+func (c *Controller) deleteBackup(obj interface{}) {
+
+	// convert object into Backup and get info for deleting
+	backup, ok := obj.(*cbv1alpha1.Backup)
+	if !ok {
+		klog.Warningf("Delete backup: Invalid object passed: %#v", obj)
+		return
+	}
+	bucket, err := c.getBucket(backup.Spec.ObjectstoreConfig)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	// Delete backup data.
+	klog.Infof("Deleting backup %s data from objectstore %s", backup.ObjectMeta.Name, backup.Spec.ObjectstoreConfig)
+	err = bucket.Delete(backup.ObjectMeta.Name + ".tgz")
+	if err != nil {
+		runtime.HandleError(err)
+	}
+}
+
+func (c *Controller) getBucket(objectstoreConfig string) (*objectstore.Bucket, error) {
+	// bucket
+	osConfig, err := c.cbclientset.ClusterbackupV1alpha1().ObjectstoreConfigs(c.namespace).Get(
+		objectstoreConfig, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// cloud credentials secret
+	cred, err := c.kubeclientset.CoreV1().Secrets(c.namespace).Get(
+		osConfig.Spec.CloudCredentialSecret, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	bucket := objectstore.NewBucket(osConfig.ObjectMeta.Name, string(cred.Data["accesskey"]),
+		string(cred.Data["secretkey"]), osConfig.Spec.Endpoint, osConfig.Spec.Region, osConfig.Spec.Bucket)
+
+	return bucket, nil
 }

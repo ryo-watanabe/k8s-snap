@@ -188,8 +188,13 @@ func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bu
 		}
 		if header.Typeflag == tar.TypeReg {
 			path := strings.Replace(header.Name, restore.Spec.BackupName, "", 1)
-			restorePref := p.preferedToRestore(path)
 
+			if path == "/backup.json" {
+				klog.Infof("-- [Backup resource file] %s", path)
+				continue
+			}
+
+			restorePref := p.preferedToRestore(path)
 			if restorePref == "Exclude" {
 				klog.Infof("-- [%s] %s", restorePref, path)
 				p.cntUpExcluded()

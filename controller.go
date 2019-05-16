@@ -22,7 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	//"k8s.io/apimachinery/pkg/api/errors"
-	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -66,7 +66,6 @@ type Controller struct {
 
 	namespace string
 	labels map[string]string
-	bucket *objectstore.Bucket
 }
 
 // NewController returns a new controller
@@ -75,8 +74,8 @@ func NewController(
 	cbclientset clientset.Interface,
 	backupInformer informers.BackupInformer,
 	restoreInformer informers.RestoreInformer,
-	namespace string,
-	bucket *objectstore.Bucket) *Controller {
+	namespace string) *Controller {
+	//bucket *objectstore.Bucket) *Controller {
 
 	// Create event broadcaster
 	// Add k8s-backup-controller types to the default Kubernetes Scheme so Events can be
@@ -99,7 +98,6 @@ func NewController(
 		restoreQueue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Restores"),
 		recorder:          recorder,
 		namespace:         namespace,
-		bucket:            bucket,
 		labels:  map[string]string{
 			"app":        "k8s-backup",
 			"controller": "k8s-backup-controller",
@@ -114,7 +112,7 @@ func NewController(
 		UpdateFunc: func(old, new interface{}) {
 			controller.enqueueBackup(new)
 		},
-		DeleteFunc: controller.enqueueBackup,
+		DeleteFunc: controller.deleteBackup,
 	})
 
 	// Set up an event handler for when Restore resources change
@@ -123,7 +121,7 @@ func NewController(
 		UpdateFunc: func(old, new interface{}) {
 			controller.enqueueRestore(new)
 		},
-		DeleteFunc: controller.enqueueRestore,
+		//DeleteFunc: controller.enqueueRestore,
 	})
 
 	return controller
@@ -141,22 +139,42 @@ func (c *Controller) Run(backupthreads, restorethreads int, stopCh <-chan struct
 	//listOptions := metav1.ListOptions{IncludeUninitialized: false}
 	//getOptions := metav1.GetOptions{IncludeUninitialized: false}
 
-	klog.Info("Checking objectstore bucket")
-	found, err := c.bucket.ChkBucket()
+	klog.Info("Checking objectstore buckets")
+	osConfigs, err := c.cbclientset.ClusterbackupV1alpha1().ObjectstoreConfigs(c.namespace).List(metav1.ListOptions{})
 	if err != nil {
-		klog.Fatalf("Check bucket error : %s", err.Error())
+		klog.Fatalf("List Objectstore Config error : %s", err.Error())
 	}
-	if !found {
-		klog.Fatalf("Bucket %s not found", c.bucket.BucketName)
-	}
+	for _, os := range osConfigs.Items {
+		// Credentials secret
+		cred, err := c.kubeclientset.CoreV1().Secrets(c.namespace).Get(os.Spec.CloudCredentialSecret, metav1.GetOptions{})
+		if err != nil {
+			klog.Fatalf("Get secret %s error : %s", os.Spec.CloudCredentialSecret, err.Error())
+		}
+		klog.Infof("- Objectstore Config : %s", os.ObjectMeta.Name)
+		bucket := objectstore.NewBucket(
+			os.ObjectMeta.Name,
+			string(cred.Data["accesskey"]),
+			string(cred.Data["secretkey"]),
+			os.Spec.Endpoint,
+			os.Spec.Region,
+			os.Spec.Bucket)
 
-	objList, err := c.bucket.ListObjectInfo()
-	if err != nil {
-		klog.Fatalf("List objects error : %s", err.Error())
-	}
-	klog.Infof("Objects in bucket %s:", c.bucket.BucketName)
-	for _, obj := range objList {
-		klog.Infof("- filename:%s size:%d timestamp:%s", obj.Name, obj.Size, obj.Timestamp)
+		found, err := bucket.ChkBucket()
+		if err != nil {
+			klog.Fatalf("Check bucket error : %s", err.Error())
+		}
+		if !found {
+			klog.Fatalf("Bucket %s not found", bucket.BucketName)
+		}
+
+		objList, err := bucket.ListObjectInfo()
+		if err != nil {
+			klog.Fatalf("List objects error : %s", err.Error())
+		}
+		klog.Infof("-- Objects in bucket %s:", bucket.BucketName)
+		for _, obj := range objList {
+			klog.Infof("--- filename:%s size:%d timestamp:%s", obj.Name, obj.Size, obj.Timestamp)
+		}
 	}
 
 	// Start the informer factories to begin populating the informer caches

@@ -20,6 +20,7 @@ type Backup struct {
 type BackupSpec struct {
 	ClusterName string `json:"clusterName"`
 	Kubeconfig string `json:"kubeconfig"`
+	ObjectstoreConfig string `json:"objectstoreConfig"`
 	TTL metav1.Duration `json:"ttl"`
 }
 
@@ -27,7 +28,7 @@ type BackupSpec struct {
 type BackupStatus struct {
 	Phase string `json:"phase"`
 	Reason string `json:"reason"`
-	BackupResourceVersion string `json: "resourceVersion"`
+	BackupResourceVersion string `json:"backupResourceVersion"`
 	BackupTimestamp metav1.Time `json:"backupTimestamp"`
 	AvailableUntil metav1.Time `json:"availableUntil"`
 	Contents []string `json:"contents"`
@@ -83,6 +84,25 @@ type RestorePreferenceSpec struct {
 	RestoreOptions []string `json:"restoreOptions"`
 }
 
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// Foo is a specification for a Foo resource
+type ObjectstoreConfig struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   ObjectstoreConfigSpec   `json:"spec"`
+}
+
+// FooSpec is the spec for a Foo resource
+type ObjectstoreConfigSpec struct {
+	Region string `json:"region"`
+	Endpoint string `json:"endpoint"`
+	CloudCredentialSecret string `json:"cloudCredentialSecret"`
+	Bucket string `json:"bucket"`
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // FooList is a list of Foo resources
@@ -111,4 +131,14 @@ type RestorePreferenceList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []RestorePreference `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// FooList is a list of Foo resources
+type ObjectstoreConfigList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []ObjectstoreConfig `json:"items"`
 }

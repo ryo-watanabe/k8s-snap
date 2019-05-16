@@ -5,6 +5,7 @@ metadata:
   namespace: k8s-backup
 spec:
   clusterName: cluster01
+  objectstoreConfig: k8s-backup-store
   kubeconfig: |
     apiVersion: v1
     clusters:

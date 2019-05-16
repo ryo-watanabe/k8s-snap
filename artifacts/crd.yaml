@@ -18,6 +18,10 @@ spec:
     type: string
     description: Timestamp of backup.
     JSONPath: .status.backupTimestamp
+  - name: RV
+    type: string
+    description: Resource Version of backup.
+    JSONPath: .status.backupResourceVersion
   - name: AVAILABLE_UNTIL
     type: string
     description: Retention period of backup.
@@ -29,11 +33,11 @@ spec:
   - name: SIZE
     type: integer
     description: Backup file size.
-    JSONPath: .status.backupFileSize
-  - name: TTL
+    JSONPath: .status.storedFileSize
+  - name: OBJECTSTORE
     type: string
-    description: TTL of backup.
-    JSONPath: .spec.ttl
+    description: Objectstore config name.
+    JSONPath: .spec.objectstoreConfig
   - name: STATUS
     type: string
     description: Status of backup.
@@ -83,3 +87,36 @@ spec:
   names:
     kind: RestorePreference
     plural: restorepreferences
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: objectstoreconfigs.clusterbackup.ssl
+spec:
+  group: clusterbackup.ssl
+  version: v1alpha1
+  scope: Namespaced
+  names:
+    kind: ObjectstoreConfig
+    plural: objectstoreconfigs
+  additionalPrinterColumns:
+  - name: REGION
+    type: string
+    description: Region.
+    JSONPath: .spec.region
+  - name: ENDPOINT
+    type: string
+    description: Endpoint.
+    JSONPath: .spec.endpoint
+  - name: CREDENTIAL
+    type: string
+    description: Cloud credential secret name.
+    JSONPath: .spec.cloudCredentialSecret
+  - name: BUCKET
+    type: string
+    description: Bucket name.
+    JSONPath: .spec.bucket
+  - name: AGE
+    type: date
+    description: Timestamp of backup.
+    JSONPath: .metadata.creationTimestamp

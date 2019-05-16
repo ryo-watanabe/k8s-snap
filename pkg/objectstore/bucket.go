@@ -21,6 +21,7 @@ type ObjectInfo struct {
 }
 
 type Bucket struct {
+	Name string
 	awsAccessKey string
 	awsSecretKey string
 	awsEndpoint string
@@ -28,8 +29,9 @@ type Bucket struct {
 	BucketName string
 }
 
-func NewBucket(awsAccessKey, awsSecretKey, awsEndpoint, awsRegion, bucketName string) *Bucket {
+func NewBucket(name, awsAccessKey, awsSecretKey, awsEndpoint, awsRegion, bucketName string) *Bucket {
 	return &Bucket{
+		Name: name,
 		awsAccessKey: awsAccessKey,
 		awsSecretKey: awsSecretKey,
 		awsEndpoint: awsEndpoint,

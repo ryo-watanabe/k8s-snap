@@ -17,18 +17,6 @@ spec:
         - name: k8s-backup-controller
           image: [image]:[TAG]
           env:
-            - name: AWS_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: cloud-credential
-                  key: accesskey
-            - name: AWS_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: cloud-credential
-                  key: secretkey
           command:
             - /k8s-backup-controller
             - --namespace=k8s-backup
-            - --awsregion=ap-northeast-1
-            - --bucketname=k8s-backup

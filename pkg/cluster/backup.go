@@ -122,6 +122,12 @@ func Backup(backup *cbv1alpha1.Backup, bucket *objectstore.Bucket) error {
 		blog.Infof("- GroupVersion : %s", resourceGroup.GroupVersion)
 
 		for _, resource := range resourceGroup.APIResources {
+
+			// exclude resource 'nodes' and 'events' on backup
+			if resource.Name == "nodes" || resource.Name == "events" {
+				continue
+			}
+
 			// Get list of a resource
 			gvr := gv.WithResource(resource.Name)
 			unstructuredList, err := dynamicClient.Resource(gvr).List(metav1.ListOptions{})
@@ -181,13 +187,8 @@ func Backup(backup *cbv1alpha1.Backup, bucket *objectstore.Bucket) error {
 		item, ok := e.Object.(*unstructured.Unstructured)
 		if ok {
 			message := "unknown type"
-			//if item.GetName() == markerName {
-			//	message = "ignored (marker resource)"
-			//	blog.Infof("-- [%s] rv:%s %s - %s", e.Type, item.GetResourceVersion(), item.GetSelfLink(), message)
-			//	continue
-			//}
 			if !isOlderValidResourceVersion(item.GetResourceVersion(), endRV) {
-				message = "ignored (newer than end-rv)"
+				message = "ignored, not older than end resource version"
 				blog.Infof("-- [%s] rv:%s %s - %s", e.Type, item.GetResourceVersion(), item.GetSelfLink(), message)
 				continue
 			}
@@ -210,7 +211,7 @@ func Backup(backup *cbv1alpha1.Backup, bucket *objectstore.Bucket) error {
 						message = "deleted"
 					}
 				} else {
-					message = "ignored (older rv)"
+					message = "ignored, resource version is older than stored"
 				}
 			} else {
 				switch e.Type {
@@ -219,7 +220,7 @@ func Backup(backup *cbv1alpha1.Backup, bucket *objectstore.Bucket) error {
 					backupList = append(backupList, *item)
 					message = "added"
 				case watch.Deleted:
-					message = "ignored (already deleted)"
+					message = "already deleted"
 				}
 			}
 			blog.Infof("-- [%s] rv:%s %s - %s", e.Type, item.GetResourceVersion(), item.GetSelfLink(), message)

@@ -12,6 +12,7 @@ import (
 
 	cbv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup/v1alpha1"
 	"github.com/ryo-watanabe/k8s-backup/pkg/cluster"
+	"github.com/ryo-watanabe/k8s-backup/pkg/objectstore"
 )
 
 // runWorker is a long-running function that will continually call the
@@ -95,6 +96,41 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 			return err
 		}
 
+		// backup
+		backup, err := c.cbclientset.ClusterbackupV1alpha1().Backups(c.namespace).Get(
+			restore.Spec.BackupName, metav1.GetOptions{})
+		if err != nil {
+			restore, err = c.updateRestoreStatus(restore, "Failed", err.Error())
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+
+		// bucket
+		osConfig, err := c.cbclientset.ClusterbackupV1alpha1().ObjectstoreConfigs(c.namespace).Get(
+			backup.Spec.ObjectstoreConfig, metav1.GetOptions{})
+		if err != nil {
+			restore, err = c.updateRestoreStatus(restore, "Failed", err.Error())
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+
+		// cloud credentials secret
+		cred, err := c.kubeclientset.CoreV1().Secrets(c.namespace).Get(
+			osConfig.Spec.CloudCredentialSecret, metav1.GetOptions{})
+		if err != nil {
+			restore, err = c.updateRestoreStatus(restore, "Failed", err.Error())
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+		bucket := objectstore.NewBucket(osConfig.ObjectMeta.Name, string(cred.Data["accesskey"]),
+			string(cred.Data["secretkey"]), osConfig.Spec.Endpoint, osConfig.Spec.Region, osConfig.Spec.Bucket)
+
 		// preference
 		pref, err := c.cbclientset.ClusterbackupV1alpha1().RestorePreferences(c.namespace).Get(
 			restore.Spec.RestorePreferenceName, metav1.GetOptions{},
@@ -108,7 +144,7 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 		}
 
 		// do restore
-		err = cluster.Restore(restore, pref, c.bucket)
+		err = cluster.Restore(restore, pref, bucket)
 		if err != nil {
 			restore, err = c.updateRestoreStatus(restore, "Failed", err.Error())
 			if err != nil {

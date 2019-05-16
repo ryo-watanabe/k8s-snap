@@ -1,0 +1,9 @@
+apiVersion: clusterbackup.ssl/v1alpha1
+kind: ObjectstoreConfig
+metadata:
+  name: k8s-backup-store
+  namespace: k8s-backup
+spec:
+  region: ap-northeast-1
+  bucket: k8s-backup
+  cloudCredentialSecret: k8s-backup-ap-northeast-1

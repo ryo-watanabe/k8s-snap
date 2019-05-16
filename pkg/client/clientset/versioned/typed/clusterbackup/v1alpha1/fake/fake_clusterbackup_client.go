@@ -32,6 +32,10 @@ func (c *FakeClusterbackupV1alpha1) Backups(namespace string) v1alpha1.BackupInt
 	return &FakeBackups{c, namespace}
 }
 
+func (c *FakeClusterbackupV1alpha1) ObjectstoreConfigs(namespace string) v1alpha1.ObjectstoreConfigInterface {
+	return &FakeObjectstoreConfigs{c, namespace}
+}
+
 func (c *FakeClusterbackupV1alpha1) Restores(namespace string) v1alpha1.RestoreInterface {
 	return &FakeRestores{c, namespace}
 }

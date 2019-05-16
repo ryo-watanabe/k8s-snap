@@ -20,6 +20,8 @@ package v1alpha1
 
 type BackupExpansion interface{}
 
+type ObjectstoreConfigExpansion interface{}
+
 type RestoreExpansion interface{}
 
 type RestorePreferenceExpansion interface{}

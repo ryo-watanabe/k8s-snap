@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// Backups returns a BackupInformer.
 	Backups() BackupInformer
+	// ObjectstoreConfigs returns a ObjectstoreConfigInformer.
+	ObjectstoreConfigs() ObjectstoreConfigInformer
 	// Restores returns a RestoreInformer.
 	Restores() RestoreInformer
 	// RestorePreferences returns a RestorePreferenceInformer.
@@ -46,6 +48,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // Backups returns a BackupInformer.
 func (v *version) Backups() BackupInformer {
 	return &backupInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// ObjectstoreConfigs returns a ObjectstoreConfigInformer.
+func (v *version) ObjectstoreConfigs() ObjectstoreConfigInformer {
+	return &objectstoreConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // Restores returns a RestoreInformer.

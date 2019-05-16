@@ -28,6 +28,7 @@ import (
 type ClusterbackupV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	BackupsGetter
+	ObjectstoreConfigsGetter
 	RestoresGetter
 	RestorePreferencesGetter
 }
@@ -39,6 +40,10 @@ type ClusterbackupV1alpha1Client struct {
 
 func (c *ClusterbackupV1alpha1Client) Backups(namespace string) BackupInterface {
 	return newBackups(c, namespace)
+}
+
+func (c *ClusterbackupV1alpha1Client) ObjectstoreConfigs(namespace string) ObjectstoreConfigInterface {
+	return newObjectstoreConfigs(c, namespace)
 }
 
 func (c *ClusterbackupV1alpha1Client) Restores(namespace string) RestoreInterface {

@@ -26,6 +26,14 @@ type BackupListerExpansion interface{}
 // BackupNamespaceLister.
 type BackupNamespaceListerExpansion interface{}
 
+// ObjectstoreConfigListerExpansion allows custom methods to be added to
+// ObjectstoreConfigLister.
+type ObjectstoreConfigListerExpansion interface{}
+
+// ObjectstoreConfigNamespaceListerExpansion allows custom methods to be added to
+// ObjectstoreConfigNamespaceLister.
+type ObjectstoreConfigNamespaceListerExpansion interface{}
+
 // RestoreListerExpansion allows custom methods to be added to
 // RestoreLister.
 type RestoreListerExpansion interface{}

@@ -55,6 +55,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=clusterbackup.ssl, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("backups"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Clusterbackup().V1alpha1().Backups().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("objectstoreconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Clusterbackup().V1alpha1().ObjectstoreConfigs().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("restores"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Clusterbackup().V1alpha1().Restores().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("restorepreferences"):

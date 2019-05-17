@@ -33,3 +33,11 @@ func (b *NamedLog) Infof(format string, v ...interface{}) {
 func (b *NamedLog) Info(string string) {
 	klog.Info(b.Name + string)
 }
+
+func (b *NamedLog) Warningf(format string, v ...interface{}) {
+	klog.Warningf(b.Name + format, v...)
+}
+
+func (b *NamedLog) Warning(string string) {
+	klog.Warning(b.Name + string)
+}

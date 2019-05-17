@@ -131,6 +131,20 @@ func (c *Controller) backupSyncHandler(key string, queueonly bool) error {
 		}
 	}
 
+	// delete expired
+	if !backup.Status.AvailableUntil.IsZero() && backup.Status.AvailableUntil.Before(&metav1.Time{time.Now()}) {
+		err := c.cbclientset.ClusterbackupV1alpha1().Backups(c.namespace).Delete(name, &metav1.DeleteOptions{})
+		if err != nil {
+			backup, err = c.updateBackupStatus(backup, "Failed", err.Error())
+			if err != nil {
+				return err
+			}
+		}
+		klog.Infof("backup:%s expired - deleted", name)
+		// When the backup deleted, exit sync handler here.
+		return nil
+	}
+
 	c.recorder.Event(backup, corev1.EventTypeNormal, "Synced", "Backup synced successfully")
 	return nil
 }

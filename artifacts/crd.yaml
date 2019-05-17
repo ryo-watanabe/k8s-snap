@@ -67,10 +67,34 @@ spec:
     type: string
     description: Backup data ID used for restore.
     JSONPath: .spec.backupName
-  - name: RESTOREDATE
+  - name: TIMESTAMP
     type: string
     description: Timestamp of restore.
-    JSONPath: .metadata.creationTimestamp
+    JSONPath: .status.restoreTimestamp
+  - name: RV
+    type: string
+    description: Resource Version of restore.
+    JSONPath: .status.restoreResourceVersion
+  - name: EXCLUDED
+    type: integer
+    description: Number of excluded by conditions.
+    JSONPath: .status.numExcluded
+  - name: CREATED
+    type: integer
+    description: Number of created.
+    JSONPath: .status.numCreated
+  - name: UPDATED
+    type: integer
+    description: Number of updated.
+    JSONPath: .status.numUpdated
+  - name: EXIST
+    type: integer
+    description: Number of already existed.
+    JSONPath: .status.numAlreadyExisted
+  - name: FAILED
+    type: integer
+    description: Number of failed.
+    JSONPath: .status.numFailed
   - name: STATUS
     type: string
     description: Status of backup.

@@ -55,12 +55,28 @@ type RestoreSpec struct {
 	BackupName string `json:"backupName"`
 	Kubeconfig string `json:"kubeconfig"`
 	RestorePreferenceName string `json:"restorePreferenceName"`
+	TTL metav1.Duration `json:"ttl"`
 }
 
 // FooStatus is the status for a Foo resource
 type RestoreStatus struct {
 	Phase string `json:"phase"`
 	Reason string `json:"reason"`
+	RestoreResourceVersion string `json:"restoreResourceVersion"`
+	RestoreTimestamp metav1.Time `json:"restoreTimestamp"`
+	PreserveUntil metav1.Time `json:"preserveUntil"`
+	NumBackupContents int32 `json:"numBackupContents"`
+	NumPreferenceExcluded int32 `json:"numPreferenceExcluded"`
+	Excluded []string `json:"excluded"`
+	NumExcluded int32 `json:"numExcluded"`
+	Created []string `json:"created"`
+	NumCreated int32 `json:"numCreated"`
+	Updated []string `json:"updated"`
+	NumUpdated int32 `json:"numUpdated"`
+	AlreadyExisted []string `json:"alreadyExisted"`
+	NumAlreadyExisted int32 `json:"numAlreadyExisted"`
+	Failed []string `json:"failed"`
+	NumFailed int32 `json:"numFailed"`
 }
 
 // +genclient

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -81,8 +82,6 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 	// if deleted.
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// Nothing to do?
-
 			// if deleted ok, exit sync handler here.
 			return nil
 		} else {
@@ -106,6 +105,14 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 			}
 			return nil
 		}
+		if backup.Status.Phase != "Completed" {
+			restore, err = c.updateRestoreStatus(restore, "Failed", "Backup data is not in status 'Completed'")
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+		restore.Status.NumBackupContents = backup.Status.NumberOfContents
 
 		// bucket
 		osConfig, err := c.cbclientset.ClusterbackupV1alpha1().ObjectstoreConfigs(c.namespace).Get(
@@ -160,10 +167,28 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 	}
 
 	if restore.Status.Phase == "" {
+		// Check TTL string
+		if restore.Spec.TTL.Duration == 0 {
+			restore.Spec.TTL.Duration = 24*7*time.Hour
+		}
 		restore, err = c.updateRestoreStatus(restore, "InQueue", "")
 		if err != nil {
 			return err
 		}
+	}
+
+	// delete expired
+	if !restore.Status.PreserveUntil.IsZero() && restore.Status.PreserveUntil.Before(&metav1.Time{time.Now()}) {
+		err := c.cbclientset.ClusterbackupV1alpha1().Restores(c.namespace).Delete(name, &metav1.DeleteOptions{})
+		if err != nil {
+			restore, err = c.updateRestoreStatus(restore, "Failed", err.Error())
+			if err != nil {
+				return err
+			}
+		}
+		klog.Infof("restore:%s expired - deleted", name)
+		// When the backup deleted, exit sync handler here.
+		return nil
 	}
 
 	c.recorder.Event(restore, corev1.EventTypeNormal, "Synced", "Restore synced successfully")

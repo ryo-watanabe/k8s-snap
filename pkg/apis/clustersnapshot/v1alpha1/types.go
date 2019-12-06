@@ -8,29 +8,31 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Foo is a specification for a Foo resource
-type Backup struct {
+type Snapshot struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   BackupSpec   `json:"spec"`
-	Status BackupStatus `json:"status"`
+	Spec   SnapshotSpec   `json:"spec"`
+	Status SnapshotStatus `json:"status"`
 }
 
 // FooSpec is the spec for a Foo resource
-type BackupSpec struct {
+type SnapshotSpec struct {
 	ClusterName string `json:"clusterName"`
 	Kubeconfig string `json:"kubeconfig"`
 	ObjectstoreConfig string `json:"objectstoreConfig"`
+	AvailableUntil metav1.Time `json:"availableUntil"`
 	TTL metav1.Duration `json:"ttl"`
 }
 
 // FooStatus is the status for a Foo resource
-type BackupStatus struct {
+type SnapshotStatus struct {
 	Phase string `json:"phase"`
 	Reason string `json:"reason"`
-	BackupResourceVersion string `json:"backupResourceVersion"`
-	BackupTimestamp metav1.Time `json:"backupTimestamp"`
+	SnapshotResourceVersion string `json:"snapshotResourceVersion"`
+	SnapshotTimestamp metav1.Time `json:"snapshotTimestamp"`
 	AvailableUntil metav1.Time `json:"availableUntil"`
+	TTL metav1.Duration `json:"ttl"`
 	Contents []string `json:"contents"`
 	StoredFileSize int64 `json:"storedFileSize"`
 	StoredTimestamp metav1.Time `json:"storedTimestamp"`
@@ -52,9 +54,10 @@ type Restore struct {
 // FooSpec is the spec for a Foo resource
 type RestoreSpec struct {
 	ClusterName string `json:"clusterName"`
-	BackupName string `json:"backupName"`
+	SnapshotName string `json:"snapshotName"`
 	Kubeconfig string `json:"kubeconfig"`
 	RestorePreferenceName string `json:"restorePreferenceName"`
+	AvailableUntil metav1.Time `json:"availableUntil"`
 	TTL metav1.Duration `json:"ttl"`
 }
 
@@ -64,8 +67,9 @@ type RestoreStatus struct {
 	Reason string `json:"reason"`
 	RestoreResourceVersion string `json:"restoreResourceVersion"`
 	RestoreTimestamp metav1.Time `json:"restoreTimestamp"`
-	PreserveUntil metav1.Time `json:"preserveUntil"`
-	NumBackupContents int32 `json:"numBackupContents"`
+	AvailableUntil metav1.Time `json:"availableUntil"`
+	TTL metav1.Duration `json:"ttl"`
+	NumSnapshotContents int32 `json:"numSnapshotContents"`
 	NumPreferenceExcluded int32 `json:"numPreferenceExcluded"`
 	Excluded []string `json:"excluded"`
 	NumExcluded int32 `json:"numExcluded"`
@@ -122,11 +126,11 @@ type ObjectstoreConfigSpec struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // FooList is a list of Foo resources
-type BackupList struct {
+type SnapshotList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []Backup `json:"items"`
+	Items []Snapshot `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

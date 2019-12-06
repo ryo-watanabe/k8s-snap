@@ -1,9 +1,9 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: backups.clusterbackup.ssl
+  name: snapshots.clustersnapshot.rywt.io
 spec:
-  group: clusterbackup.ssl
+  group: clustersnapshot.rywt.io
   version: v1alpha1
   scope: Namespaced
   names:
@@ -50,9 +50,9 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: restores.clusterbackup.ssl
+  name: restores.clustersnapshot.rywt.io
 spec:
-  group: clusterbackup.ssl
+  group: clustersnapshot.rywt.io
   version: v1alpha1
   scope: Namespaced
   names:
@@ -103,9 +103,9 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: restorepreferences.clusterbackup.ssl
+  name: restorepreferences.clustersnapshot.rywt.io
 spec:
-  group: clusterbackup.ssl
+  group: clustersnapshot.rywt.io
   version: v1alpha1
   scope: Namespaced
   names:
@@ -115,9 +115,9 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: objectstoreconfigs.clusterbackup.ssl
+  name: objectstoreconfigs.clustersnapshot.rywt.io
 spec:
-  group: clusterbackup.ssl
+  group: clustersnapshot.rywt.io
   version: v1alpha1
   scope: Namespaced
   names:

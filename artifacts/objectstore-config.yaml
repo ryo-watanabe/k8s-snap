@@ -1,9 +1,9 @@
-apiVersion: clusterbackup.ssl/v1alpha1
+apiVersion: clustersnapshot.rywt.io/v1alpha1
 kind: ObjectstoreConfig
 metadata:
-  name: k8s-backup-store
-  namespace: k8s-backup
+  name: k8s-snap-ap-northeast-1
+  namespace: k8s-snap
 spec:
   region: ap-northeast-1
-  bucket: k8s-backup
-  cloudCredentialSecret: k8s-backup-ap-northeast-1
+  bucket: k8s-snap
+  cloudCredentialSecret: k8s-snap-ap-northeast-1

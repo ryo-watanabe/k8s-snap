@@ -15,9 +15,9 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog"
 
-	cbv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup/v1alpha1"
-	"github.com/ryo-watanabe/k8s-backup/pkg/objectstore"
-	"github.com/ryo-watanabe/k8s-backup/pkg/utils"
+	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
+	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
+	"github.com/ryo-watanabe/k8s-snap/pkg/utils"
 )
 
 func loadItem(item *unstructured.Unstructured, filepath string) error {
@@ -115,7 +115,7 @@ func restoreDir(dir, restorePref string, dyn dynamic.Interface, p *preference,
 		// Operation for each resources
 		switch item.GetKind() {
 		case "Secret":
-			if item.Object["type"] == "kubernetes.io/service-account-token" {
+			if getUnstructuredString(item.Object, "type") == "kubernetes.io/service-account-token" {
 				excludeWithMsg(restore, rlog, item.GetSelfLink(), "token-secret")
 				continue
 			}
@@ -193,21 +193,21 @@ func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bu
 	restore.Status.Failed = nil
 
 	// Download
-	rlog.Infof("Downloading file %s", restore.Spec.BackupName + ".tgz")
-	backupFile, err := os.Create("/tmp/" + restore.Spec.BackupName + ".tgz")
-	defer backupFile.Close()
-	err = bucket.Download(backupFile, restore.Spec.BackupName + ".tgz")
+	rlog.Infof("Downloading file %s", restore.Spec.SnapshotName + ".tgz")
+	snapshotFile, err := os.Create("/tmp/" + restore.Spec.SnapshotName + ".tgz")
+	defer snapshotFile.Close()
+	err = bucket.Download(snapshotFile, restore.Spec.SnapshotName + ".tgz")
 	if err != nil {
 		return err
 	}
-	backupFile.Close()
+	snapshotFile.Close()
 
 	// Read tar.gz
-	backupFile, err = os.Open("/tmp/" + restore.Spec.BackupName + ".tgz")
+	snapshotFile, err = os.Open("/tmp/" + restore.Spec.SnapshotName + ".tgz")
 	if err != nil {
 		return err
 	}
-	tgz, err := gzip.NewReader(backupFile)
+	tgz, err := gzip.NewReader(snapshotFile)
 	if err != nil {
 		return err
 	}
@@ -220,7 +220,7 @@ func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bu
 		return err
 	}
 
-	rlog.Info("Extract files in backup tgz :")
+	rlog.Info("Extract files in snapshot tgz :")
 	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
@@ -230,10 +230,10 @@ func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bu
 			return err
 		}
 		if header.Typeflag == tar.TypeReg {
-			path := strings.Replace(header.Name, restore.Spec.BackupName, "", 1)
+			path := strings.Replace(header.Name, restore.Spec.SnapshotName, "", 1)
 
-			if path == "/backup.json" {
-				klog.Infof("-- [Backup resource file] %s", path)
+			if path == "/snapshot.json" {
+				klog.Infof("-- [Snapshot resource file] %s", path)
 				continue
 			}
 
@@ -335,14 +335,21 @@ func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bu
 
 	// Timestamp and resource version
 	restore.Status.RestoreTimestamp = marker.ObjectMeta.CreationTimestamp
-	restore.Status.PreserveUntil = metav1.NewTime(marker.ObjectMeta.CreationTimestamp.Add(restore.Spec.TTL.Duration))
+	// Set expiration
+	if restore.Spec.AvailableUntil.IsZero() {
+		restore.Status.AvailableUntil = metav1.NewTime(marker.ObjectMeta.CreationTimestamp.Add(restore.Spec.TTL.Duration))
+		restore.Status.TTL = restore.Spec.TTL
+	} else {
+		restore.Status.AvailableUntil = restore.Spec.AvailableUntil
+		restore.Status.TTL.Duration = restore.Status.AvailableUntil.Time.Sub(restore.Status.RestoreTimestamp.Time)
+	}
 	restore.Status.RestoreResourceVersion = marker.ObjectMeta.ResourceVersion
 
 	// result
 	rlog.Info("Restore completed")
 	rlog.Infof("-- resource version    : %s", restore.Status.RestoreResourceVersion)
 	rlog.Infof("-- timestamp           : %s", restore.Status.RestoreTimestamp)
-	rlog.Infof("-- preserve until      : %s", restore.Status.PreserveUntil)
+	rlog.Infof("-- available until     : %s", restore.Status.AvailableUntil)
 	rlog.Infof("-- preference excluded : %d", restore.Status.NumPreferenceExcluded)
 	rlog.Infof("-- excluded            : %d", restore.Status.NumExcluded)
 	rlog.Infof("-- created             : %d", restore.Status.NumCreated)

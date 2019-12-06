@@ -1,18 +1,18 @@
-apiVersion: clusterbackup.ssl/v1alpha1
+apiVersion: clustersnapshot.rywt.io/v1alpha1
 kind: Restore
 metadata:
   name: cluster02-cluster01-001-001
-  namespace: k8s-backup
+  namespace: k8s-snap
 spec:
   clusterName: cluster02
   backupName: cluster01-001
-  restorePreferenceName: user-backup
+  restorePreferenceName: exclude-kube-system
   kubeconfig: |
     apiVersion: v1
     clusters:
     - cluster:
         certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN3akND...
-        server: https://cluster01.kubernetes.111.111.111.111.nip.io:6443
+        server: https://cluster01.kubernetes.rywt.nip.io:6443
       name: cluster
     contexts:
     - context:
@@ -26,3 +26,5 @@ spec:
     - name: remote-user
       user:
         token: eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVz....
+  ttl: 720h
+  availableUntil: 2020-07-01T02:03:04Z

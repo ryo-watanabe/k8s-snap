@@ -28,41 +28,49 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/dynamic"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
-	clientset "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned"
-	ccscheme "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned/scheme"
-	informers "github.com/ryo-watanabe/k8s-backup/pkg/client/informers/externalversions/clusterbackup/v1alpha1"
-	listers "github.com/ryo-watanabe/k8s-backup/pkg/client/listers/clusterbackup/v1alpha1"
+	clientset "github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned"
+	ccscheme "github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned/scheme"
+	informers "github.com/ryo-watanabe/k8s-snap/pkg/client/informers/externalversions/clustersnapshot/v1alpha1"
+	listers "github.com/ryo-watanabe/k8s-snap/pkg/client/listers/clustersnapshot/v1alpha1"
 
-	"github.com/ryo-watanabe/k8s-backup/pkg/objectstore"
+	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
 )
 
-const controllerAgentName = "k8s-backup"
+const controllerAgentName = "k8s-snapshot"
 
 const (
 	ErrResourceExists = "ErrResourceExists"
-	MessageResourceExists = "Resource %q already exists and is not managed by k8s-backup"
+	MessageResourceExists = "Resource %q already exists and is not managed by k8s-snapshot"
 )
 
 
-// Controller is the controller implementation for Backup and Restore resources
+// Controller is the controller implementation for Snapshot and Restore resources
 type Controller struct {
 	kubeclientset kubernetes.Interface
+	dynamic dynamic.Interface
 	cbclientset clientset.Interface
 
-	backupLister listers.BackupLister
-	backupsSynced cache.InformerSynced
+	snapshotLister listers.SnapshotLister
+	snapshotsSynced cache.InformerSynced
 	restoreLister listers.RestoreLister
 	restoresSynced cache.InformerSynced
 
-	backupQueue workqueue.RateLimitingInterface
+	snapshotQueue workqueue.RateLimitingInterface
 	restoreQueue workqueue.RateLimitingInterface
 	recorder record.EventRecorder
+
+	housekeepstore bool
+	restoresnapshots bool
+	validatefileinfo bool
+
+	maxretryelaspsedminutes int
 
 	namespace string
 	labels map[string]string
@@ -71,15 +79,18 @@ type Controller struct {
 // NewController returns a new controller
 func NewController(
 	kubeclientset kubernetes.Interface,
+	dynamic dynamic.Interface,
 	cbclientset clientset.Interface,
-	backupInformer informers.BackupInformer,
+	snapshotInformer informers.SnapshotInformer,
 	restoreInformer informers.RestoreInformer,
-	namespace string) *Controller {
+	namespace string,
+	housekeepstore, restoresnapshots, validatefileinfo bool,
+	maxretryelaspsedminutes int) *Controller {
 	//bucket *objectstore.Bucket) *Controller {
 
 	// Create event broadcaster
-	// Add k8s-backup-controller types to the default Kubernetes Scheme so Events can be
-	// logged for k8s-backup-controller types.
+	// Add k8s-snapshot-controller types to the default Kubernetes Scheme so Events can be
+	// logged for k8s-snapshot-controller types.
 	utilruntime.Must(ccscheme.AddToScheme(scheme.Scheme))
 	klog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
@@ -90,29 +101,34 @@ func NewController(
 	controller := &Controller{
 		kubeclientset:     kubeclientset,
 		cbclientset:       cbclientset,
-		backupLister:      backupInformer.Lister(),
-		backupsSynced:     backupInformer.Informer().HasSynced,
+		dynamic:           dynamic,
+		snapshotLister:    snapshotInformer.Lister(),
+		snapshotsSynced:   snapshotInformer.Informer().HasSynced,
 		restoreLister:     restoreInformer.Lister(),
 		restoresSynced:    restoreInformer.Informer().HasSynced,
-		backupQueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Backups"),
+		snapshotQueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Snapshots"),
 		restoreQueue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Restores"),
 		recorder:          recorder,
+		housekeepstore:    housekeepstore,
+		restoresnapshots:  restoresnapshots,
+		validatefileinfo:  validatefileinfo,
+		maxretryelaspsedminutes: maxretryelaspsedminutes,
 		namespace:         namespace,
 		labels:  map[string]string{
-			"app":        "k8s-backup",
-			"controller": "k8s-backup-controller",
+			"app":        "k8s-snap",
+			"controller": "k8s-snap-controller",
 		},
 	}
 
 	klog.Info("Setting up event handlers")
 
-	// Set up an event handler for when Backup resources change
-	backupInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.enqueueBackup,
+	// Set up an event handler for when Snapshot resources change
+	snapshotInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.enqueueSnapshot,
 		UpdateFunc: func(old, new interface{}) {
-			controller.enqueueBackup(new)
+			controller.enqueueSnapshot(new)
 		},
-		DeleteFunc: controller.deleteBackup,
+		DeleteFunc: controller.deleteSnapshot,
 	})
 
 	// Set up an event handler for when Restore resources change
@@ -131,16 +147,22 @@ func NewController(
 // as syncing informer caches and starting workers. It will block until stopCh
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
-func (c *Controller) Run(backupthreads, restorethreads int, stopCh <-chan struct{}) error {
+func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
-	defer c.backupQueue.ShutDown()
+	defer c.snapshotQueue.ShutDown()
 	defer c.restoreQueue.ShutDown()
 
-	//listOptions := metav1.ListOptions{IncludeUninitialized: false}
-	//getOptions := metav1.GetOptions{IncludeUninitialized: false}
+	klog.Info("Checking namespace")
+	_, err := c.kubeclientset.CoreV1().Namespaces().Get(c.namespace, metav1.GetOptions{})
+	if err != nil {
+		klog.Fatalf("Namespace %s not exist", c.namespace)
+	}
+
+	// TO DO : Check CRDs are existing here.
+	//klog.Info("Checking CRDs")
 
 	klog.Info("Checking objectstore buckets")
-	osConfigs, err := c.cbclientset.ClusterbackupV1alpha1().ObjectstoreConfigs(c.namespace).List(metav1.ListOptions{})
+	osConfigs, err := c.cbclientset.ClustersnapshotV1alpha1().ObjectstoreConfigs(c.namespace).List(metav1.ListOptions{})
 	if err != nil {
 		klog.Fatalf("List Objectstore Config error : %s", err.Error())
 	}
@@ -150,7 +172,6 @@ func (c *Controller) Run(backupthreads, restorethreads int, stopCh <-chan struct
 		if err != nil {
 			klog.Fatalf("Get secret %s error : %s", os.Spec.CloudCredentialSecret, err.Error())
 		}
-		klog.Infof("- Objectstore Config : %s", os.ObjectMeta.Name)
 		bucket := objectstore.NewBucket(
 			os.ObjectMeta.Name,
 			string(cred.Data["accesskey"]),
@@ -158,6 +179,7 @@ func (c *Controller) Run(backupthreads, restorethreads int, stopCh <-chan struct
 			os.Spec.Endpoint,
 			os.Spec.Region,
 			os.Spec.Bucket)
+		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s", bucket.Name, bucket.Endpoint, bucket.BucketName)
 
 		found, err := bucket.ChkBucket()
 		if err != nil {
@@ -178,24 +200,35 @@ func (c *Controller) Run(backupthreads, restorethreads int, stopCh <-chan struct
 	}
 
 	// Start the informer factories to begin populating the informer caches
-	klog.Info("Starting backup controller")
+	klog.Info("Starting snapshot controller")
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.backupsSynced, c.restoresSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, c.snapshotsSynced, c.restoresSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
+	}
+
+	klog.Info("Initial object sync")
+
+	// Initial object sync: set restoresnapshots=true for resource recovery.
+	err = c.syncObjects(false, c.restoresnapshots, c.validatefileinfo)
+	if err != nil {
+		klog.Errorf("Object sync error : %s", err.Error())
 	}
 
 	klog.Info("Starting workers")
 
 	// Launch two workers to process Proxy resources
-	for i := 0; i < backupthreads; i++ {
-		go wait.Until(c.runBackupWorker, time.Second, stopCh)
+	for i := 0; i < snapshotthreads; i++ {
+		go wait.Until(c.runSnapshotWorker, time.Second, stopCh)
 	}
-	go wait.Until(c.runBackupQueuer, time.Second, stopCh)
+	go wait.Until(c.runSnapshotQueuer, time.Second, stopCh)
 	for i := 0; i < restorethreads; i++ {
 		go wait.Until(c.runRestoreWorker, time.Second, stopCh)
 	}
+
+	// Start object syncer
+	go wait.Until(c.runObjectSyncer, time.Duration(300) * time.Second, stopCh)
 
 	klog.Info("Started workers")
 	<-stopCh

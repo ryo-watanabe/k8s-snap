@@ -1,11 +1,11 @@
-apiVersion: clusterbackup.ssl/v1alpha1
-kind: Backup
+apiVersion: clustersnapshot.rywt.io/v1alpha1
+kind: Snapshot
 metadata:
   name: cluster01-001
-  namespace: k8s-backup
+  namespace: k8s-snap
 spec:
   clusterName: cluster01
-  objectstoreConfig: k8s-backup-store
+  objectstoreConfig: k8s-snap-ap-northeast-1
   kubeconfig: |
     apiVersion: v1
     clusters:
@@ -25,3 +25,5 @@ spec:
     - name: remote-user
       user:
         token: eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVz....
+  ttl: 720h
+  availableUntil: 2020-07-01T02:03:04Z

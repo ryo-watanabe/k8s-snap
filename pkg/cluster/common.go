@@ -69,3 +69,39 @@ func ConfigMapMarker(kubeClient *kubernetes.Clientset, name string) (*corev1.Con
 	}
 	return configMap, nil
 }
+
+func getUnstructuredMap(obj map[string]interface{}, name string) map[string]interface{} {
+	item, ok := obj[name]
+	if !ok {
+		return nil
+	}
+	m, ok := item.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	return m
+}
+
+func getUnstructuredSlice(obj map[string]interface{}, name string) []interface{} {
+	item, ok := obj[name]
+	if !ok {
+		return nil
+	}
+	s, ok := item.([]interface{})
+	if !ok {
+		return nil
+	}
+	return s
+}
+
+func getUnstructuredString(obj map[string]interface{}, name string) string {
+	item, ok := obj[name]
+	if !ok {
+		return ""
+	}
+	s, ok := item.(string)
+	if !ok {
+		return ""
+	}
+	return s
+}

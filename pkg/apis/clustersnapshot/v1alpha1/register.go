@@ -21,11 +21,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup"
+	"github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot"
 )
 
 // SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = schema.GroupVersion{Group: clusterbackup.GroupName, Version: "v1alpha1"}
+var SchemeGroupVersion = schema.GroupVersion{Group: clustersnapshot.GroupName, Version: "v1alpha1"}
 
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind
 func Kind(kind string) schema.GroupKind {
@@ -45,8 +45,8 @@ var (
 // Adds the list of known types to Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&Backup{},
-		&BackupList{},
+		&Snapshot{},
+		&SnapshotList{},
 		&Restore{},
 		&RestoreList{},
 	)

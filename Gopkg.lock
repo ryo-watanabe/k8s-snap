@@ -47,6 +47,14 @@
   version = "v1.19.15"
 
 [[projects]]
+  digest = "1:f11885665d7cedde53a06ceca3cc1deb8b430c7d3030f42b12e6a7d59695c616"
+  name = "github.com/cenkalti/backoff"
+  packages = ["."]
+  pruneopts = ""
+  revision = "1ff1c09ea627d2be64cea605afa999c582c7cd01"
+  version = "v3.1.1"
+
+[[projects]]
   digest = "1:0deddd908b6b4b768cfc272c16ee61e7088a60f7fe2f06c547bd3d8e1f8b8e77"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
@@ -199,6 +207,25 @@
   pruneopts = ""
   revision = "5f041e8faa004a95c88a202771f4cc3e991971e6"
   version = "v2.0.1"
+
+[[projects]]
+  branch = "master"
+  digest = "1:0abf41385112a25555b4a2c3364306719bcbb821ffa86c89add1e6732f009fea"
+  name = "github.com/ryo-watanabe/k8s-backup"
+  packages = [
+    "pkg/apis/clusterbackup",
+    "pkg/apis/clusterbackup/v1alpha1",
+    "pkg/client/clientset/versioned",
+    "pkg/client/clientset/versioned/scheme",
+    "pkg/client/clientset/versioned/typed/clusterbackup/v1alpha1",
+    "pkg/client/clientset/versioned/typed/clusterbackup/v1alpha1/fake",
+    "pkg/client/informers/externalversions/clusterbackup",
+    "pkg/client/informers/externalversions/clusterbackup/v1alpha1",
+    "pkg/client/informers/externalversions/internalinterfaces",
+    "pkg/client/listers/clusterbackup/v1alpha1",
+  ]
+  pruneopts = ""
+  revision = "ae4c00985a7eee97d20b35d9062ddb743642fd62"
 
 [[projects]]
   digest = "1:cbaf13cdbfef0e4734ed8a7504f57fe893d471d62a35b982bf6fb3f036449a66"
@@ -514,6 +541,16 @@
     "github.com/aws/aws-sdk-go/aws/session",
     "github.com/aws/aws-sdk-go/service/s3",
     "github.com/aws/aws-sdk-go/service/s3/s3manager",
+    "github.com/cenkalti/backoff",
+    "github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup/v1alpha1",
+    "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned",
+    "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned/scheme",
+    "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned/typed/clusterbackup/v1alpha1",
+    "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned/typed/clusterbackup/v1alpha1/fake",
+    "github.com/ryo-watanabe/k8s-backup/pkg/client/informers/externalversions/clusterbackup",
+    "github.com/ryo-watanabe/k8s-backup/pkg/client/informers/externalversions/clusterbackup/v1alpha1",
+    "github.com/ryo-watanabe/k8s-backup/pkg/client/informers/externalversions/internalinterfaces",
+    "github.com/ryo-watanabe/k8s-backup/pkg/client/listers/clusterbackup/v1alpha1",
     "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",

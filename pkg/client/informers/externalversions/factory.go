@@ -23,9 +23,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned"
-	clusterbackup "github.com/ryo-watanabe/k8s-backup/pkg/client/informers/externalversions/clusterbackup"
-	internalinterfaces "github.com/ryo-watanabe/k8s-backup/pkg/client/informers/externalversions/internalinterfaces"
+	versioned "github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned"
+	clustersnapshot "github.com/ryo-watanabe/k8s-snap/pkg/client/informers/externalversions/clustersnapshot"
+	internalinterfaces "github.com/ryo-watanabe/k8s-snap/pkg/client/informers/externalversions/internalinterfaces"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -172,9 +172,9 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Clusterbackup() clusterbackup.Interface
+	Clustersnapshot() clustersnapshot.Interface
 }
 
-func (f *sharedInformerFactory) Clusterbackup() clusterbackup.Interface {
-	return clusterbackup.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Clustersnapshot() clustersnapshot.Interface {
+	return clustersnapshot.New(f, f.namespace, f.tweakListOptions)
 }

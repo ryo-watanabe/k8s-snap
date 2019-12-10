@@ -12,8 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
-	cbv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup/v1alpha1"
-	"github.com/ryo-watanabe/k8s-backup/pkg/utils"
+	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
+	"github.com/ryo-watanabe/k8s-snap/pkg/utils"
 )
 
 // Check PV status->phase
@@ -23,9 +23,13 @@ func isPVBound(pvName string, dyn dynamic.Interface, rlog *utils.NamedLog) (bool
 	if err != nil {
 		return false, err
 	}
-	pv_status := pv_item.Object["status"].(map[string]interface{})
-	rlog.Infof("     Checking PV:%s status:%s", pvName, pv_status["phase"].(string))
-	if pv_status["phase"] == "Bound" {
+	pv_status := getUnstructuredMap(pv_item.Object, "status")
+	if pv_status == nil {
+		return false, err
+	}
+	pv_phase := getUnstructuredString(pv_status, "phase")
+	rlog.Infof("     Checking PV:%s status:%s", pvName, pv_phase)
+	if pv_phase == "Bound" {
 		return true, nil
 	}
 	return false, nil
@@ -54,15 +58,23 @@ func restorePV(dir string, dyn dynamic.Interface, p *preference,
 		rlog.Infof("---- %s", pvc_item.GetSelfLink())
 
 		// Check storageClassName
-		pvc_spec := pvc_item.Object["spec"].(map[string]interface{})
-		storageClassName := pvc_spec["storageClassName"].(string)
-		if !p.isIncludedStorageClass(storageClassName) {
-			excludeWithMsg(restore, rlog, pvc_item.GetSelfLink(), "no-storageclass")
+		pvc_spec := getUnstructuredMap(pvc_item.Object, "spec")
+		if pvc_spec == nil {
+			excludeWithMsg(restore, rlog, pvc_item.GetSelfLink(), "no-pvc-spec")
 			continue
+		}
+		storageClassName := getUnstructuredString(pvc_spec, "storageClassName")
+		if storageClassName == "" || !p.isIncludedStorageClass(storageClassName) {
+			// Check Annotations
+			annotaionStorageClassName := pvc_item.GetAnnotations()["volume.beta.kubernetes.io/storage-class"]
+			if annotaionStorageClassName == "" || !p.isIncludedStorageClass(annotaionStorageClassName) {
+				excludeWithMsg(restore, rlog, pvc_item.GetSelfLink(), "no-storageclass")
+				continue
+			}
 		}
 
 		// Check bounded and PV name
-		volumeName := pvc_spec["volumeName"].(string)
+		volumeName := getUnstructuredString(pvc_spec, "volumeName")
 		if volumeName == "" {
 			excludeWithMsg(restore, rlog, pvc_item.GetSelfLink(), "not-bounded")
 			continue
@@ -91,7 +103,11 @@ func restorePV(dir string, dyn dynamic.Interface, p *preference,
 
 		// Restore PV first
 		rlog.Infof("     Restoring PV %s", pv_item.GetName())
-		pv_spec := pv_item.Object["spec"].(map[string]interface{})
+		pv_spec := getUnstructuredMap(pv_item.Object, "spec")
+		if pv_spec == nil {
+			excludeWithMsg(restore, rlog, pvc_item.GetSelfLink(), "no-pv-spec")
+			continue
+		}
 		pv_spec["claimRef"] = nil
 		pv_item.Object["status"] = nil
 		pv_item.SetResourceVersion("")

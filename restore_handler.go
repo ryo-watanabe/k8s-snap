@@ -11,9 +11,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 
-	cbv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup/v1alpha1"
-	"github.com/ryo-watanabe/k8s-backup/pkg/cluster"
-	"github.com/ryo-watanabe/k8s-backup/pkg/objectstore"
+	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
+	"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
+	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
 )
 
 // runWorker is a long-running function that will continually call the
@@ -62,8 +62,8 @@ func (c *Controller) processNextRestoreItem(queueonly bool) bool {
 }
 
 
-// backupSyncHandler compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Backup resource
+// snapshotSyncHandler compares the actual state with the desired, and attempts to
+// converge the two. It then updates the Status block of the Snapshot resource
 // with the current status of the resource.
 func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 
@@ -95,9 +95,9 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 			return err
 		}
 
-		// backup
-		backup, err := c.cbclientset.ClusterbackupV1alpha1().Backups(c.namespace).Get(
-			restore.Spec.BackupName, metav1.GetOptions{})
+		// snapshot
+		snapshot, err := c.cbclientset.ClustersnapshotV1alpha1().Snapshots(c.namespace).Get(
+			restore.Spec.SnapshotName, metav1.GetOptions{})
 		if err != nil {
 			restore, err = c.updateRestoreStatus(restore, "Failed", err.Error())
 			if err != nil {
@@ -105,18 +105,18 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 			}
 			return nil
 		}
-		if backup.Status.Phase != "Completed" {
-			restore, err = c.updateRestoreStatus(restore, "Failed", "Backup data is not in status 'Completed'")
+		if snapshot.Status.Phase != "Completed" {
+			restore, err = c.updateRestoreStatus(restore, "Failed", "Snapshot data is not in status 'Completed'")
 			if err != nil {
 				return err
 			}
 			return nil
 		}
-		restore.Status.NumBackupContents = backup.Status.NumberOfContents
+		restore.Status.NumSnapshotContents = snapshot.Status.NumberOfContents
 
 		// bucket
-		osConfig, err := c.cbclientset.ClusterbackupV1alpha1().ObjectstoreConfigs(c.namespace).Get(
-			backup.Spec.ObjectstoreConfig, metav1.GetOptions{})
+		osConfig, err := c.cbclientset.ClustersnapshotV1alpha1().ObjectstoreConfigs(c.namespace).Get(
+			snapshot.Spec.ObjectstoreConfig, metav1.GetOptions{})
 		if err != nil {
 			restore, err = c.updateRestoreStatus(restore, "Failed", err.Error())
 			if err != nil {
@@ -139,7 +139,7 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 			string(cred.Data["secretkey"]), osConfig.Spec.Endpoint, osConfig.Spec.Region, osConfig.Spec.Bucket)
 
 		// preference
-		pref, err := c.cbclientset.ClusterbackupV1alpha1().RestorePreferences(c.namespace).Get(
+		pref, err := c.cbclientset.ClustersnapshotV1alpha1().RestorePreferences(c.namespace).Get(
 			restore.Spec.RestorePreferenceName, metav1.GetOptions{},
 		)
 		if err != nil {
@@ -167,9 +167,19 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 	}
 
 	if restore.Status.Phase == "" {
-		// Check TTL string
-		if restore.Spec.TTL.Duration == 0 {
-			restore.Spec.TTL.Duration = 24*7*time.Hour
+		// Chack AvailableUntil
+		if restore.Spec.AvailableUntil.IsZero() {
+			// Check TTL string
+			if restore.Spec.TTL.Duration == 0 {
+				restore.Spec.TTL.Duration = 24*7*time.Hour
+			}
+		} else if restore.Spec.AvailableUntil.Before(&metav1.Time{time.Now()}) {
+			restore, err = c.updateRestoreStatus(restore, "Failed", "AvailableUntil is set as past.")
+			if err != nil {
+				return err
+			}
+			// When the restore failed, exit sync handler here.
+			return nil
 		}
 		restore, err = c.updateRestoreStatus(restore, "InQueue", "")
 		if err != nil {
@@ -177,9 +187,35 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 		}
 	}
 
+	// expiration for failed restore
+	if restore.Status.Phase == "Failed" && restore.Status.AvailableUntil.IsZero() {
+		if !restore.Spec.AvailableUntil.IsZero() {
+			restore.Status.AvailableUntil = restore.Spec.AvailableUntil
+			restore.Status.TTL.Duration = restore.Status.AvailableUntil.Time.Sub(restore.ObjectMeta.CreationTimestamp.Time)
+		} else {
+			restore.Status.AvailableUntil = metav1.NewTime(restore.ObjectMeta.CreationTimestamp.Add(restore.Spec.TTL.Duration))
+			restore.Status.TTL = restore.Spec.TTL
+		}
+		restore, err = c.updateRestoreStatus(restore, restore.Status.Phase, restore.Status.Reason)
+		if err != nil {
+			return err
+		}
+	}
+
+	// expiration edited
+	if restore.Status.Phase == "Completed" || restore.Status.Phase == "Failed" {
+		if !restore.Spec.AvailableUntil.IsZero() && !restore.Spec.AvailableUntil.Equal(&restore.Status.AvailableUntil) {
+			restore.Status.AvailableUntil = restore.Spec.AvailableUntil
+			restore, err = c.updateRestoreStatus(restore, restore.Status.Phase, restore.Status.Reason)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	// delete expired
-	if !restore.Status.PreserveUntil.IsZero() && restore.Status.PreserveUntil.Before(&metav1.Time{time.Now()}) {
-		err := c.cbclientset.ClusterbackupV1alpha1().Restores(c.namespace).Delete(name, &metav1.DeleteOptions{})
+	if !restore.Status.AvailableUntil.IsZero() && restore.Status.AvailableUntil.Before(&metav1.Time{time.Now()}) {
+		err := c.cbclientset.ClustersnapshotV1alpha1().Restores(c.namespace).Delete(name, &metav1.DeleteOptions{})
 		if err != nil {
 			restore, err = c.updateRestoreStatus(restore, "Failed", err.Error())
 			if err != nil {
@@ -187,7 +223,7 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 			}
 		}
 		klog.Infof("restore:%s expired - deleted", name)
-		// When the backup deleted, exit sync handler here.
+		// When the snapshot deleted, exit sync handler here.
 		return nil
 	}
 
@@ -199,8 +235,8 @@ func (c *Controller) updateRestoreStatus(restore *cbv1alpha1.Restore, phase, rea
 	restoreCopy := restore.DeepCopy()
 	restoreCopy.Status.Phase = phase
 	restoreCopy.Status.Reason = reason
-	klog.Infof("Restore:%s status %s => %s : %s", restore.ObjectMeta.Name, restore.Status.Phase, phase, reason)
-	restore, err := c.cbclientset.ClusterbackupV1alpha1().Restores(restore.Namespace).Update(restoreCopy)
+	klog.Infof("restore:%s status %s => %s : %s", restore.ObjectMeta.Name, restore.Status.Phase, phase, reason)
+	restore, err := c.cbclientset.ClustersnapshotV1alpha1().Restores(restore.Namespace).Update(restoreCopy)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to update restore status for " + restore.ObjectMeta.Name + " : " + err.Error())
 	}

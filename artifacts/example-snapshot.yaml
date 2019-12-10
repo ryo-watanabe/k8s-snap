@@ -1,18 +1,17 @@
 apiVersion: clustersnapshot.rywt.io/v1alpha1
-kind: Restore
+kind: Snapshot
 metadata:
-  name: cluster02-cluster01-001-001
+  name: cluster01-001
   namespace: k8s-snap
 spec:
-  clusterName: cluster02
-  snapshotName: cluster01-001
-  restorePreferenceName: exclude-kube-system
+  clusterName: cluster01
+  objectstoreConfig: k8s-snap-ap-northeast-1
   kubeconfig: |
     apiVersion: v1
     clusters:
     - cluster:
         certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN3akND...
-        server: https://cluster01.kubernetes.rywt.nip.io:6443
+        server: https://cluster01.kubernetes.rywt.io:6443
       name: cluster
     contexts:
     - context:

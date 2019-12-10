@@ -10,47 +10,48 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
+	"github.com/cenkalti/backoff"
 
-	cbv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup/v1alpha1"
-	"github.com/ryo-watanabe/k8s-backup/pkg/cluster"
-	"github.com/ryo-watanabe/k8s-backup/pkg/objectstore"
+	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
+	"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
+	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
 )
 
 // runWorker is a long-running function that will continually call the
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
-func (c *Controller) runBackupWorker() {
-	for c.processNextBackupItem(false) {
+func (c *Controller) runSnapshotWorker() {
+	for c.processNextSnapshotItem(false) {
 	}
 }
 
-func (c *Controller) runBackupQueuer() {
-	for c.processNextBackupItem(true) {
+func (c *Controller) runSnapshotQueuer() {
+	for c.processNextSnapshotItem(true) {
 	}
 }
 
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the syncHandler.
-func (c *Controller) processNextBackupItem(queueonly bool) bool {
-	// Proccess backup queue
-	obj, shutdown := c.backupQueue.Get()
+func (c *Controller) processNextSnapshotItem(queueonly bool) bool {
+	// Proccess snapshot queue
+	obj, shutdown := c.snapshotQueue.Get()
 	if shutdown {
 		return false
 	}
 	err := func(obj interface{}) error {
-		defer c.backupQueue.Done(obj)
+		defer c.snapshotQueue.Done(obj)
 		var key string
 		var ok bool
 		if key, ok = obj.(string); !ok {
-			c.backupQueue.Forget(obj)
+			c.snapshotQueue.Forget(obj)
 			runtime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
 			return nil
 		}
-		if err := c.backupSyncHandler(key, queueonly); err != nil {
-			c.backupQueue.AddRateLimited(key)
+		if err := c.snapshotSyncHandler(key, queueonly); err != nil {
+			c.snapshotQueue.AddRateLimited(key)
 			return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())
 		}
-		c.backupQueue.Forget(obj)
+		c.snapshotQueue.Forget(obj)
 		klog.V(4).Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
@@ -62,10 +63,14 @@ func (c *Controller) processNextBackupItem(queueonly bool) bool {
 	return true
 }
 
-// backupSyncHandler compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Backup resource
+func retryNotify(err error, wait time.Duration) {
+	klog.Infof("Retrying after %.2f seconds with error : %s", wait.Seconds(), err.Error())
+}
+
+// snapshotSyncHandler compares the actual state with the desired, and attempts to
+// converge the two. It then updates the Status block of the Snapshot resource
 // with the current status of the resource.
-func (c *Controller) backupSyncHandler(key string, queueonly bool) error {
+func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 
 	//getOptions := metav1.GetOptions{IncludeUninitialized: false}
 
@@ -76,123 +81,197 @@ func (c *Controller) backupSyncHandler(key string, queueonly bool) error {
 		return nil
 	}
 
-	// Get the Backup resource with this namespace/name.
-	backup, err := c.backupLister.Backups(namespace).Get(name)
+	// Get the Snapshot resource with this namespace/name.
+	snapshot, err := c.snapshotLister.Snapshots(namespace).Get(name)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// When deleting a backup, exit sync handler here.
+			// When deleting a snapshot, exit sync handler here.
 			return nil
 		} else {
 			return err
 		}
 	}
 
-	if !queueonly && backup.Status.Phase == "InQueue" {
-		backup, err = c.updateBackupStatus(backup, "InProgress", "")
+	// controller stopped wwhile taking the snapshot
+	if snapshot.Status.Phase == "InProgress" {
+
+		// check timestamp just in case
+		retryend := metav1.NewTime(snapshot.ObjectMeta.CreationTimestamp.Add(time.Duration(c.maxretryelaspsedminutes + 1)*time.Minute))
+		if retryend.Before(&metav1.Time{time.Now()}) {
+			snapshot, err = c.updateSnapshotStatus(snapshot, "Failed", "Controller stopped while taking the snapshot")
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// do snapshot
+	if !queueonly && snapshot.Status.Phase == "InQueue" {
+		snapshot, err = c.updateSnapshotStatus(snapshot, "InProgress", "")
 		if err != nil {
 			return err
 		}
 
 		// bucket
-		bucket, err := c.getBucket(backup.Spec.ObjectstoreConfig)
+		bucket, err := c.getBucket(snapshot.Spec.ObjectstoreConfig)
 		if err != nil {
-			backup, err = c.updateBackupStatus(backup, "Failed", err.Error())
+			snapshot, err = c.updateSnapshotStatus(snapshot, "Failed", err.Error())
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s", bucket.Name, bucket.Endpoint, bucket.BucketName)
+
+		// do snapshot with backoff retry
+		b := backoff.NewExponentialBackOff()
+		b.MaxElapsedTime = time.Duration(c.maxretryelaspsedminutes) * time.Minute
+		b.RandomizationFactor = 0.2
+		b.Multiplier = 2.0
+		b.InitialInterval = 2 * time.Second
+		operationSnapshot := func() error {
+			return cluster.Snapshot(snapshot)
+		}
+		err = backoff.RetryNotify(operationSnapshot, b, retryNotify)
+		if err != nil {
+			snapshot, err = c.updateSnapshotStatus(snapshot, "Failed", err.Error())
 			if err != nil {
 				return err
 			}
 			return nil
 		}
 
-		// do backup
-		err = cluster.Backup(backup, bucket)
+		// upload snapshot with backoff retry
+		b.Reset()
+		operationUpload := func() error {
+			return cluster.UploadSnapshot(snapshot, bucket)
+		}
+		err = backoff.RetryNotify(operationUpload, b, retryNotify)
 		if err != nil {
-			backup, err = c.updateBackupStatus(backup, "Failed", err.Error())
+			snapshot, err = c.updateSnapshotStatus(snapshot, "Failed", err.Error())
 			if err != nil {
 				return err
 			}
 			return nil
 		}
 
-		backup, err = c.updateBackupStatus(backup, "Completed", "")
+		snapshot, err = c.updateSnapshotStatus(snapshot, "Completed", "")
 		if err != nil {
 			return err
 		}
 	}
 
-	if backup.Status.Phase == "" {
-		// Check TTL string
-		if backup.Spec.TTL.Duration == 0 {
-			backup.Spec.TTL.Duration = 24*30*time.Hour
+	// initialize
+	if snapshot.Status.Phase == "" {
+		// Check AvailableUntil
+		if snapshot.Spec.AvailableUntil.IsZero() {
+			// Check TTL string
+			if snapshot.Spec.TTL.Duration == 0 {
+				snapshot.Spec.TTL.Duration = 24*30*time.Hour
+			}
+		} else if snapshot.Spec.AvailableUntil.Before(&metav1.Time{time.Now()}) {
+			snapshot, err = c.updateSnapshotStatus(snapshot, "Failed", "AvailableUntil is set as past.")
+			if err != nil {
+				return err
+			}
+			// When the snapshot failed, exit sync handler here.
+			return nil
 		}
-		backup, err = c.updateBackupStatus(backup, "InQueue", "")
+		snapshot, err = c.updateSnapshotStatus(snapshot, "InQueue", "")
 		if err != nil {
 			return err
+		}
+	}
+
+	// expiration for failed snapshot
+	if snapshot.Status.Phase == "Failed" && snapshot.Status.AvailableUntil.IsZero() {
+		if !snapshot.Spec.AvailableUntil.IsZero() {
+			snapshot.Status.AvailableUntil = snapshot.Spec.AvailableUntil
+			snapshot.Status.TTL.Duration = snapshot.Status.AvailableUntil.Time.Sub(snapshot.ObjectMeta.CreationTimestamp.Time)
+		} else {
+			snapshot.Status.AvailableUntil = metav1.NewTime(snapshot.ObjectMeta.CreationTimestamp.Add(snapshot.Spec.TTL.Duration))
+			snapshot.Status.TTL = snapshot.Spec.TTL
+		}
+		snapshot, err = c.updateSnapshotStatus(snapshot, snapshot.Status.Phase, snapshot.Status.Reason)
+		if err != nil {
+			return err
+		}
+	}
+
+	// expiration edited
+	if snapshot.Status.Phase == "Completed" || snapshot.Status.Phase == "Failed" {
+		if !snapshot.Spec.AvailableUntil.IsZero() && !snapshot.Spec.AvailableUntil.Equal(&snapshot.Status.AvailableUntil) {
+			snapshot.Status.AvailableUntil = snapshot.Spec.AvailableUntil
+			snapshot, err = c.updateSnapshotStatus(snapshot, snapshot.Status.Phase, snapshot.Status.Reason)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	// delete expired
-	if !backup.Status.AvailableUntil.IsZero() && backup.Status.AvailableUntil.Before(&metav1.Time{time.Now()}) {
-		err := c.cbclientset.ClusterbackupV1alpha1().Backups(c.namespace).Delete(name, &metav1.DeleteOptions{})
+	if !snapshot.Status.AvailableUntil.IsZero() && snapshot.Status.AvailableUntil.Before(&metav1.Time{time.Now()}) {
+		err := c.cbclientset.ClustersnapshotV1alpha1().Snapshots(c.namespace).Delete(name, &metav1.DeleteOptions{})
 		if err != nil {
-			backup, err = c.updateBackupStatus(backup, "Failed", err.Error())
+			snapshot, err = c.updateSnapshotStatus(snapshot, "Failed", err.Error())
 			if err != nil {
 				return err
 			}
 		}
-		klog.Infof("backup:%s expired - deleted", name)
-		// When the backup deleted, exit sync handler here.
+		klog.Infof("snapshot:%s expired - deleted", name)
+		// When the snapshot deleted, exit sync handler here.
 		return nil
 	}
 
-	c.recorder.Event(backup, corev1.EventTypeNormal, "Synced", "Backup synced successfully")
+	c.recorder.Event(snapshot, corev1.EventTypeNormal, "Synced", "Snapshot synced successfully")
 	return nil
 }
 
-func (c *Controller) updateBackupStatus(backup *cbv1alpha1.Backup, phase, reason string) (*cbv1alpha1.Backup, error) {
-	backupCopy := backup.DeepCopy()
-	backupCopy.Status.Phase = phase
-	backupCopy.Status.Reason = reason
-	klog.Infof("backup:%s status %s => %s : %s", backup.ObjectMeta.Name, backup.Status.Phase, phase, reason)
-	backup, err := c.cbclientset.ClusterbackupV1alpha1().Backups(backup.Namespace).Update(backupCopy)
+func (c *Controller) updateSnapshotStatus(snapshot *cbv1alpha1.Snapshot, phase, reason string) (*cbv1alpha1.Snapshot, error) {
+	snapshotCopy := snapshot.DeepCopy()
+	snapshotCopy.Status.Phase = phase
+	snapshotCopy.Status.Reason = reason
+	klog.Infof("snapshot:%s status %s => %s : %s", snapshot.ObjectMeta.Name, snapshot.Status.Phase, phase, reason)
+	snapshot, err := c.cbclientset.ClustersnapshotV1alpha1().Snapshots(snapshot.Namespace).Update(snapshotCopy)
 	if err != nil {
-		return backup, fmt.Errorf("Failed to update backup status for %s : %s", backup.ObjectMeta.Name, err.Error())
+		return snapshot, fmt.Errorf("Failed to update snapshot status for %s : %s", snapshot.ObjectMeta.Name, err.Error())
 	}
-	return backup, err
+	return snapshot, err
 }
 
-// enqueueBackup takes a Backup resource and converts it into a namespace/name
+// enqueueSnapshot takes a Snapshot resource and converts it into a namespace/name
 // string which is then put onto the work queue. This method should *not* be
-// passed resources of any type other than Backup.
-func (c *Controller) enqueueBackup(obj interface{}) {
+// passed resources of any type other than Snapshot.
+func (c *Controller) enqueueSnapshot(obj interface{}) {
 	var key string
 	var err error
-	//klog.Info("backup enqueued : %#v", obj)
+	//klog.Info("snapshot enqueued : %#v", obj)
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	c.backupQueue.AddRateLimited(key)
+	c.snapshotQueue.AddRateLimited(key)
 }
 
-// Delete backup files on objectstore when Backup resource deleted
-func (c *Controller) deleteBackup(obj interface{}) {
+// Delete snapshot files on objectstore when Snapshot resource deleted
+func (c *Controller) deleteSnapshot(obj interface{}) {
 
-	// convert object into Backup and get info for deleting
-	backup, ok := obj.(*cbv1alpha1.Backup)
+	// convert object into Snapshot and get info for deleting
+	snapshot, ok := obj.(*cbv1alpha1.Snapshot)
 	if !ok {
-		klog.Warningf("Delete backup: Invalid object passed: %#v", obj)
+		klog.Warningf("Delete snapshot: Invalid object passed: %#v", obj)
 		return
 	}
-	bucket, err := c.getBucket(backup.Spec.ObjectstoreConfig)
+	bucket, err := c.getBucket(snapshot.Spec.ObjectstoreConfig)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	// Delete backup data.
-	klog.Infof("Deleting backup %s data from objectstore %s", backup.ObjectMeta.Name, backup.Spec.ObjectstoreConfig)
-	err = bucket.Delete(backup.ObjectMeta.Name + ".tgz")
+	// Delete snapshot data.
+	klog.Infof("Deleting snapshot %s data from objectstore %s", snapshot.ObjectMeta.Name, snapshot.Spec.ObjectstoreConfig)
+	err = bucket.Delete(snapshot.ObjectMeta.Name + ".tgz")
 	if err != nil {
 		runtime.HandleError(err)
 	}
@@ -200,7 +279,7 @@ func (c *Controller) deleteBackup(obj interface{}) {
 
 func (c *Controller) getBucket(objectstoreConfig string) (*objectstore.Bucket, error) {
 	// bucket
-	osConfig, err := c.cbclientset.ClusterbackupV1alpha1().ObjectstoreConfigs(c.namespace).Get(
+	osConfig, err := c.cbclientset.ClustersnapshotV1alpha1().ObjectstoreConfigs(c.namespace).Get(
 		objectstoreConfig, metav1.GetOptions{})
 	if err != nil {
 		return nil, err

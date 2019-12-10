@@ -21,7 +21,7 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup/v1alpha1"
+	v1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -52,15 +52,15 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=clusterbackup.ssl, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithResource("backups"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Clusterbackup().V1alpha1().Backups().Informer()}, nil
+	// Group=clustersnapshot.rywt.io, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("objectstoreconfigs"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Clusterbackup().V1alpha1().ObjectstoreConfigs().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Clustersnapshot().V1alpha1().ObjectstoreConfigs().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("restores"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Clusterbackup().V1alpha1().Restores().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Clustersnapshot().V1alpha1().Restores().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("restorepreferences"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Clusterbackup().V1alpha1().RestorePreferences().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Clustersnapshot().V1alpha1().RestorePreferences().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("snapshots"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Clustersnapshot().V1alpha1().Snapshots().Informer()}, nil
 
 	}
 

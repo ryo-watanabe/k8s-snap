@@ -18,34 +18,35 @@ type ObjectInfo struct {
 	Name string
 	Size int64
 	Timestamp time.Time
+	BucketConfigName string
 }
 
 type Bucket struct {
 	Name string
-	awsAccessKey string
-	awsSecretKey string
-	awsEndpoint string
-	awsRegion string
+	AccessKey string
+	SecretKey string
+	Endpoint string
+	Region string
 	BucketName string
 }
 
-func NewBucket(name, awsAccessKey, awsSecretKey, awsEndpoint, awsRegion, bucketName string) *Bucket {
+func NewBucket(name, accessKey, secretKey, endpoint, region, bucketName string) *Bucket {
 	return &Bucket{
 		Name: name,
-		awsAccessKey: awsAccessKey,
-		awsSecretKey: awsSecretKey,
-		awsEndpoint: awsEndpoint,
-		awsRegion: awsRegion,
+		AccessKey: accessKey,
+		SecretKey: secretKey,
+		Endpoint: endpoint,
+		Region: region,
 		BucketName: bucketName,
 	}
 }
 
 func (b *Bucket) setSession() (*session.Session, error) {
-	creds := credentials.NewStaticCredentials(b.awsAccessKey, b.awsSecretKey, "")
+	creds := credentials.NewStaticCredentials(b.AccessKey, b.SecretKey, "")
 	sess, err := session.NewSession(&aws.Config{
 		Credentials: creds,
-		Region: aws.String(b.awsRegion),
-		Endpoint: &b.awsEndpoint,
+		Region: aws.String(b.Region),
+		Endpoint: &b.Endpoint,
 	})
 	if err != nil {
 		return nil, err
@@ -165,6 +166,7 @@ func (b *Bucket) GetObjectInfo(filename string) (*ObjectInfo, error) {
 			    Name: filename,
 			    Size: aws.Int64Value(obj.Size),
 			    Timestamp: aws.TimeValue(obj.LastModified),
+			    BucketConfigName: b.Name,
 		    }
 		    return &objInfo, nil
 	    }
@@ -196,6 +198,7 @@ func (b *Bucket) ListObjectInfo() ([]ObjectInfo, error) {
 			Name: aws.StringValue(obj.Key),
 			Size: aws.Int64Value(obj.Size),
 			Timestamp: aws.TimeValue(obj.LastModified),
+			BucketConfigName: b.Name,
 		}
 		objInfoList = append(objInfoList, objInfo)
 	}

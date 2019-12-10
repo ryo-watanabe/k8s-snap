@@ -1,12 +1,11 @@
-apiVersion: clusterbackup.ssl/v1alpha1
+apiVersion: clustersnapshot.rywt.io/v1alpha1
 kind: RestorePreference
 metadata:
-  name: user-backup
-  namespace: k8s-backup
+  name: exclude-kube-system
+  namespace: k8s-snap
 spec:
   excludeNamespaces:
     - "kube-system"
-    - "cattle-system"
     - "kube-public"
     - "ingress-nginx"
   excludeCRDs:

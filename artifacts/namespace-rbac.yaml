@@ -1,17 +1,17 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: k8s-backup
+  name: k8s-snap
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: k8s-backup-controller
+  name: k8s-snap-controller
   labels:
-    component: k8s-backup
+    component: k8s-snap
 subjects:
   - kind: ServiceAccount
-    namespace: k8s-backup
+    namespace: k8s-snap
     name: default
 roleRef:
   kind: ClusterRole

@@ -8,7 +8,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog"
-	cbv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/apis/clusterbackup/v1alpha1"
+	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 )
 
 func apiPathMatched(path, apiPath string) bool {
@@ -164,27 +164,33 @@ func (p *preference) setIncludedClusterRoles(dir, restorePref string) error {
 			if err != nil {
 				return err
 			}
-			subjects, ok := item.Object["subjects"].([]interface{})
-			if !ok {
+			subjects := getUnstructuredSlice(item.Object, "subjects")
+			if subjects == nil {
 				continue
 			}
 			include := false
 			for _, sub := range subjects {
-				s := sub.(map[string]interface{})
-				if s["kind"] == "ServiceAccount" {
-					if p.isUserNamespace(s["namespace"].(string)) {
+				s, ok := sub.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				if getUnstructuredString(s, "kind") == "ServiceAccount" {
+					if p.isUserNamespace(getUnstructuredString(s, "namespace")) {
 						include = true
 					}
 				}
 			}
 			if include {
-				roleref, ok := item.Object["roleRef"].(map[string]interface{})
-				if !ok {
+				roleref := getUnstructuredMap(item.Object, "roleRef")
+				if roleref == nil {
 					continue
 				}
-				p.includedClusterRoles = append(p.includedClusterRoles, roleref["name"].(string))
-				p.includedClusterRoleBindings = append(p.includedClusterRoleBindings, item.GetName())
-				klog.Infof("---- %s referenced in %s", roleref["name"], item.GetName())
+				rolename := getUnstructuredString(roleref, "name")
+				if rolename != "" {
+					p.includedClusterRoles = append(p.includedClusterRoles, rolename)
+					p.includedClusterRoleBindings = append(p.includedClusterRoleBindings, item.GetName())
+					klog.Infof("---- %s referenced in %s", rolename, item.GetName())
+				}
 			}
 		}
 	}

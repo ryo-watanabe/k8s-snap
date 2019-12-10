@@ -1,30 +1,30 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: backups.clusterbackup.ssl
+  name: snapshots.clustersnapshot.rywt.io
 spec:
-  group: clusterbackup.ssl
+  group: clustersnapshot.rywt.io
   version: v1alpha1
   scope: Namespaced
   names:
-    kind: Backup
-    plural: backups
+    kind: Snapshot
+    plural: snapshots
   additionalPrinterColumns:
-  - name: CLUSTERNAME
+  - name: CLUSTER
     type: string
     description: Cluster ID.
     JSONPath: .spec.clusterName
   - name: TIMESTAMP
     type: string
-    description: Timestamp of backup.
-    JSONPath: .status.backupTimestamp
+    description: Timestamp of snapshot.
+    JSONPath: .status.snapshotTimestamp
   - name: RV
     type: string
-    description: Resource Version of backup.
-    JSONPath: .status.backupResourceVersion
+    description: Resource Version of snapshot.
+    JSONPath: .status.snapshotResourceVersion
   - name: AVAILABLE_UNTIL
     type: string
-    description: Retention period of backup.
+    description: Retention period of snapshot.
     JSONPath: .status.availableUntil
   - name: CONTENTS
     type: integer
@@ -32,7 +32,7 @@ spec:
     JSONPath: .status.numberOfContents
   - name: SIZE
     type: integer
-    description: Backup file size.
+    description: Snapshot file size.
     JSONPath: .status.storedFileSize
   - name: OBJECTSTORE
     type: string
@@ -40,33 +40,33 @@ spec:
     JSONPath: .spec.objectstoreConfig
   - name: STATUS
     type: string
-    description: Status of backup.
+    description: Status of snapshot.
     JSONPath: .status.phase
   - name: AGE
     type: date
-    description: Timestamp of backup.
+    description: Timestamp of snapshot.
     JSONPath: .metadata.creationTimestamp
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: restores.clusterbackup.ssl
+  name: restores.clustersnapshot.rywt.io
 spec:
-  group: clusterbackup.ssl
+  group: clustersnapshot.rywt.io
   version: v1alpha1
   scope: Namespaced
   names:
     kind: Restore
     plural: restores
   additionalPrinterColumns:
-  - name: CLUSTERNAME
+  - name: CLUSTER
     type: string
     description: Cluster ID.
     JSONPath: .spec.clusterName
-  - name: BACKUPNAME
+  - name: SNAPSHOT
     type: string
-    description: Backup data ID used for restore.
-    JSONPath: .spec.backupName
+    description: Snapshot data ID used for restore.
+    JSONPath: .spec.snapshotName
   - name: TIMESTAMP
     type: string
     description: Timestamp of restore.
@@ -97,15 +97,15 @@ spec:
     JSONPath: .status.numFailed
   - name: STATUS
     type: string
-    description: Status of backup.
+    description: Status of snapshot.
     JSONPath: .status.phase
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: restorepreferences.clusterbackup.ssl
+  name: restorepreferences.clustersnapshot.rywt.io
 spec:
-  group: clusterbackup.ssl
+  group: clustersnapshot.rywt.io
   version: v1alpha1
   scope: Namespaced
   names:
@@ -115,9 +115,9 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: objectstoreconfigs.clusterbackup.ssl
+  name: objectstoreconfigs.clustersnapshot.rywt.io
 spec:
-  group: clusterbackup.ssl
+  group: clustersnapshot.rywt.io
   version: v1alpha1
   scope: Namespaced
   names:
@@ -142,5 +142,5 @@ spec:
     JSONPath: .spec.bucket
   - name: AGE
     type: date
-    description: Timestamp of backup.
+    description: Timestamp of snapshot.
     JSONPath: .metadata.creationTimestamp

@@ -19,9 +19,9 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned"
-	clusterbackupv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned/typed/clusterbackup/v1alpha1"
-	fakeclusterbackupv1alpha1 "github.com/ryo-watanabe/k8s-backup/pkg/client/clientset/versioned/typed/clusterbackup/v1alpha1/fake"
+	clientset "github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned"
+	clustersnapshotv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned/typed/clustersnapshot/v1alpha1"
+	fakeclustersnapshotv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned/typed/clustersnapshot/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -71,12 +71,12 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 
 var _ clientset.Interface = &Clientset{}
 
-// ClusterbackupV1alpha1 retrieves the ClusterbackupV1alpha1Client
-func (c *Clientset) ClusterbackupV1alpha1() clusterbackupv1alpha1.ClusterbackupV1alpha1Interface {
-	return &fakeclusterbackupv1alpha1.FakeClusterbackupV1alpha1{Fake: &c.Fake}
+// ClustersnapshotV1alpha1 retrieves the ClustersnapshotV1alpha1Client
+func (c *Clientset) ClustersnapshotV1alpha1() clustersnapshotv1alpha1.ClustersnapshotV1alpha1Interface {
+	return &fakeclustersnapshotv1alpha1.FakeClustersnapshotV1alpha1{Fake: &c.Fake}
 }
 
-// Clusterbackup retrieves the ClusterbackupV1alpha1Client
-func (c *Clientset) Clusterbackup() clusterbackupv1alpha1.ClusterbackupV1alpha1Interface {
-	return &fakeclusterbackupv1alpha1.FakeClusterbackupV1alpha1{Fake: &c.Fake}
+// Clustersnapshot retrieves the ClustersnapshotV1alpha1Client
+func (c *Clientset) Clustersnapshot() clustersnapshotv1alpha1.ClustersnapshotV1alpha1Interface {
+	return &fakeclustersnapshotv1alpha1.FakeClustersnapshotV1alpha1{Fake: &c.Fake}
 }

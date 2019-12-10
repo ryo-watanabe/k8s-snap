@@ -11,7 +11,7 @@ spec:
     clusters:
     - cluster:
         certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN3akND...
-        server: https://cluster01.kubernetes.111.111.111.111.nip.io:6443
+        server: https://cluster01.kubernetes.rywt.io:6443
       name: cluster
     contexts:
     - context:

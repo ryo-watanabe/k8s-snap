@@ -187,7 +187,7 @@ metadata:
   namespace: k8s-backup
 spec:
   clusterName: cluster02
-  backupName: cluster01-001
+  snapshotName: cluster01-001
   restorePreferenceName: exclude-kube-system
   kubeconfig: |
     apiVersion: v1

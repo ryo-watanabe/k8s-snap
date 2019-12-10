@@ -19,10 +19,6 @@
 
 ## Options
 ````
-$ env | grep AWS_
-AWS_SECRET_KEY=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
-AWS_ACCESS_KEY=LMNOPQRSTUVWXYZ0123456
-
 $ /k8s-snap-controller \
 --namespace=k8s-snap
 ````

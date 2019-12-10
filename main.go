@@ -114,7 +114,7 @@ func main() {
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	flag.StringVar(&namespace, "namespace", "hatoba-snapshot", "Namespace for hatoba-snapshot")
+	flag.StringVar(&namespace, "namespace", "k8s-snap", "Namespace for k8s-snap")
 	flag.IntVar(&snapshotthreads, "snapshotthreads", 5, "Number of snapshot threads")
 	flag.IntVar(&restorethreads, "restorethreads", 2, "Number of restore threads")
 	flag.BoolVar(&housekeepstore, "housekeepstore", true, "Clean up orphan files on object store regularly")

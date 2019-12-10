@@ -124,7 +124,7 @@ func (c *Controller) restoreSnapshotFromObject(object objectstore.ObjectInfo) er
 		}
 		// Add kind and apiVersion to older snapshots
 		if strings.Contains(ermsg, "Object 'Kind' is missing") {
-			snapshotJson := "{\"kind\":\"Snapshot\",\"apiVersion\":\"clustersnapshot.hatoba/v1alpha1\","
+			snapshotJson := "{\"kind\":\"Snapshot\",\"apiVersion\":\"clustersnapshot.rywt.io/v1alpha1\","
 			snapshotJson += string(bytes)[1:]
 			err = item.UnmarshalJSON([]byte(snapshotJson))
 			if err != nil {

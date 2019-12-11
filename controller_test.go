@@ -73,6 +73,24 @@ func newConfiguredSnapshot(name, phase string) *clustersnapshot.Snapshot {
 	}
 }
 
+func newConfiguredRestore(name, phase string) *clustersnapshot.Restore {
+	return &clustersnapshot.Restore{
+		TypeMeta: metav1.TypeMeta{APIVersion: clustersnapshot.SchemeGroupVersion.String()},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: metav1.NamespaceDefault,
+		},
+		Spec: clustersnapshot.RestoreSpec{
+			ClusterName:    name,
+			Kubeconfig:     "kubeconfig",
+			SnapshotName:  "snapshot",
+		},
+		Status: clustersnapshot.RestoreStatus{
+			Phase:                   phase,
+		},
+	}
+}
+
 //func (f *fixture) newController() (*Controller, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 func (f *fixture) newController() (*Controller, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 	f.client = fake.NewSimpleClientset(f.objects...)
@@ -114,22 +132,27 @@ func (f *fixture) startInformers(i informers.SharedInformerFactory, k8sI kubeinf
 	//k8sI.Start(stopCh)
 }
 
-func (f *fixture) run(c *Controller, snapshotName string) {
-	f.runTest(c, snapshotName, false)
+func (f *fixture) run(c *Controller, name, res string) {
+	f.runTest(c, name, res, false)
 }
 
-func (f *fixture) runExpectError(c *Controller, snapshotName string) {
-	f.runTest(c, snapshotName, true)
+func (f *fixture) runExpectError(c *Controller, name, res string) {
+	f.runTest(c, name, res, true)
 }
 
-func (f *fixture) runTest(c *Controller, snapshotName string, expectError bool) {
+func (f *fixture) runTest(c *Controller, name, res string, expectError bool) {
 
-	if snapshotName != "" {
-		err := c.snapshotSyncHandler(snapshotName, true)
+	if name != "" {
+		var err error
+		if res == "restores" {
+			err = c.restoreSyncHandler(name, true)
+		} else {
+			err = c.snapshotSyncHandler(name, true)
+		}
 		if !expectError && err != nil {
-			f.t.Errorf("error syncing snapshot: %v", err)
+			f.t.Errorf("error syncing custom resource: %v", err)
 		} else if expectError && err == nil {
-			f.t.Error("expected error syncing snapshot, got nil")
+			f.t.Error("expected error syncing custom resource, got nil")
 		}
 	}
 
@@ -216,6 +239,10 @@ func (f *fixture) expectUpdateSnapshotAction(s *clustersnapshot.Snapshot) {
 	f.actions = append(f.actions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "snapshots"}, s.Namespace, s))
 }
 
+func (f *fixture) expectUpdateRestoreAction(s *clustersnapshot.Restore) {
+	f.actions = append(f.actions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "restores"}, s.Namespace, s))
+}
+
 func (f *fixture) expectUpdateSnapshotStatusAction(s *clustersnapshot.Snapshot) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "snapshots"}, s.Namespace, s)
 	// TODO: Until #38113 is merged, we can't use Subresource
@@ -223,10 +250,10 @@ func (f *fixture) expectUpdateSnapshotStatusAction(s *clustersnapshot.Snapshot) 
 	f.actions = append(f.actions, action)
 }
 
-func getKey(snapshot *clustersnapshot.Snapshot, t *testing.T) string {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(snapshot)
+func getKey(obj interface{}, t *testing.T) string {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
-		t.Errorf("Unexpected error getting key for proxy %v: %v", snapshot.Name, err)
+		t.Errorf("Unexpected error getting key for proxy %v: %v", obj, err)
 		return ""
 	}
 	return key
@@ -252,7 +279,7 @@ func TestCreateSnapshot(t *testing.T) {
 
 	f.initInformers(i, k8sI)
 	f.startInformers(i, k8sI)
-	f.run(c, getKey(ex_snapshot, t))
+	f.run(c, getKey(ex_snapshot, t), "snapshots")
 }
 
 func TestCreateSnapshotRFC3339(t *testing.T) {
@@ -272,7 +299,30 @@ func TestCreateSnapshotRFC3339(t *testing.T) {
 
 	f.initInformers(i, k8sI)
 	f.startInformers(i, k8sI)
-	f.run(c, getKey(ex_snapshot, t))
+	f.run(c, getKey(ex_snapshot, t), "snapshots")
+}
+
+func TestCreateRestore(t *testing.T) {
+	f := newFixture(t)
+
+	// pre-existing snapshot resource
+	s1 := newConfiguredRestore("test1", "Completed")
+	f.restoreLister = append(f.restoreLister, s1)
+	f.objects = append(f.objects, s1)
+        // new snapshot resource
+	s2 := newConfiguredRestore("test2", "")
+	f.restoreLister = append(f.restoreLister, s2)
+	f.objects = append(f.objects, s2)
+
+	c, i, k8sI := f.newController()
+
+	ex_restore := newConfiguredRestore("test2", "InQueue")
+        ex_restore.Spec.TTL.Duration, _ = time.ParseDuration("168h0m0s")
+	f.expectUpdateRestoreAction(ex_restore)
+
+	f.initInformers(i, k8sI)
+	f.startInformers(i, k8sI)
+	f.run(c, getKey(ex_restore, t), "restores")
 }
 
 func int32Ptr(i int32) *int32 { return &i }

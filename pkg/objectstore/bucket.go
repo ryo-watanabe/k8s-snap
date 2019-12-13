@@ -14,6 +14,15 @@ import (
 	"k8s.io/klog"
 )
 
+type Objectstore interface {
+	ChkBucket() (bool, error)
+	Upload(file *os.File, filename string) error
+	Download(file *os.File, filename string) error
+	Delete(filename string) error
+	GetObjectInfo(filename string) (*ObjectInfo, error)
+	ListObjectInfo() ([]ObjectInfo, error)
+}
+
 type ObjectInfo struct {
 	Name string
 	Size int64

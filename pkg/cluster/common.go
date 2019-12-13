@@ -8,7 +8,35 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
         corev1 "k8s.io/api/core/v1"
+
+	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
+	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
 )
+
+type Cluster interface {
+	Snapshot(snapshot *cbv1alpha1.Snapshot) error
+	UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket *objectstore.Bucket) error
+	Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket *objectstore.Bucket) error
+}
+
+type ClusterCmd struct {
+}
+
+func NewClusterCmd() *ClusterCmd {
+	return &ClusterCmd{}
+}
+
+func (c *ClusterCmd)Snapshot(snapshot *cbv1alpha1.Snapshot) error {
+	return Snapshot(snapshot)
+}
+
+func (c *ClusterCmd)UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket *objectstore.Bucket) error {
+	return UploadSnapshot(snapshot, bucket)
+}
+
+func (c *ClusterCmd)Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket *objectstore.Bucket) error {
+	return Restore(restore, pref, bucket)
+}
 
 // Setup Kubernetes client for target cluster.
 func buildKubeClient(kubeconfig string) (*kubernetes.Clientset, error) {

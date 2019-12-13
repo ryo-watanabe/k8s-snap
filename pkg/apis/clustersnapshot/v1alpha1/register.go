@@ -49,6 +49,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&SnapshotList{},
 		&Restore{},
 		&RestoreList{},
+		&ObjectstoreConfig{},
+		&ObjectstoreConfigList{},
+		&RestorePreference{},
+		&RestorePreferenceList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

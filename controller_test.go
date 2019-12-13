@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	//corev1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -22,6 +22,7 @@ import (
 	informers "github.com/ryo-watanabe/k8s-snap/pkg/client/informers/externalversions"
 
 	"github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned/fake"
+	"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
 )
 
 var (
@@ -73,6 +74,36 @@ func newConfiguredSnapshot(name, phase string) *clustersnapshot.Snapshot {
 	}
 }
 
+func newObjectstoreConfig() *clustersnapshot.ObjectstoreConfig {
+	return &clustersnapshot.ObjectstoreConfig{
+		TypeMeta: metav1.TypeMeta{APIVersion: clustersnapshot.SchemeGroupVersion.String()},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "objectstoreConfig",
+			Namespace: metav1.NamespaceDefault,
+		},
+		Spec: clustersnapshot.ObjectstoreConfigSpec{
+			Region: "refion",
+			Endpoint: "endpoint",
+			Bucket: "bucket",
+			CloudCredentialSecret: "cloudCredentialSecret",
+		},
+	}
+}
+
+func newCloudCredentialSecret() *corev1.Secret {
+	return &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind:"Secret"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cloudCredentialSecret",
+			Namespace: metav1.NamespaceDefault,
+		},
+		Data: map[string][]byte {
+			"accesskey": []byte("YWNjZXNza2V5"),
+			"secretkey": []byte("c2VjcmV0a2V5"),
+		},
+	}
+}
+
 func newConfiguredRestore(name, phase string) *clustersnapshot.Restore {
 	return &clustersnapshot.Restore{
 		TypeMeta: metav1.TypeMeta{APIVersion: clustersnapshot.SchemeGroupVersion.String()},
@@ -106,7 +137,9 @@ func (f *fixture) newController() (*Controller, informers.SharedInformerFactory,
 		f.kubeclient, f.dynamic, f.client,
 		i.Clustersnapshot().V1alpha1().Snapshots(),
                 i.Clustersnapshot().V1alpha1().Restores(),
-		snapshotNamespace, true, true, true, maxRetryMin)
+		snapshotNamespace, true, true, true, maxRetryMin,
+		cluster.NewFakeClusterCmd(),
+	)
 
 	c.snapshotsSynced = alwaysReady
         c.restoresSynced = alwaysReady
@@ -133,21 +166,25 @@ func (f *fixture) startInformers(i informers.SharedInformerFactory, k8sI kubeinf
 }
 
 func (f *fixture) run(c *Controller, name, res string) {
-	f.runTest(c, name, res, false)
+	f.runTest(c, name, res, false, false)
+}
+
+func (f *fixture) runQueueOnly(c *Controller, name, res string) {
+	f.runTest(c, name, res, false, true)
 }
 
 func (f *fixture) runExpectError(c *Controller, name, res string) {
-	f.runTest(c, name, res, true)
+	f.runTest(c, name, res, true, false)
 }
 
-func (f *fixture) runTest(c *Controller, name, res string, expectError bool) {
+func (f *fixture) runTest(c *Controller, name, res string, expectError, queueOnly bool) {
 
 	if name != "" {
 		var err error
 		if res == "restores" {
-			err = c.restoreSyncHandler(name, true)
+			err = c.restoreSyncHandler(name, queueOnly)
 		} else {
-			err = c.snapshotSyncHandler(name, true)
+			err = c.snapshotSyncHandler(name, queueOnly)
 		}
 		if !expectError && err != nil {
 			f.t.Errorf("error syncing custom resource: %v", err)
@@ -225,6 +262,7 @@ func filterInformerActions(actions []core.Action) []core.Action {
 	ret := []core.Action{}
 	for _, action := range actions {
 		if action.GetNamespace() == snapshotNamespace && (
+				action.Matches("get", "objectstoreconfigs") ||
 				action.Matches("list", "snapshots") ||
 				action.Matches("watch", "snapshots")) {
 			continue
@@ -279,7 +317,7 @@ func TestCreateSnapshot(t *testing.T) {
 
 	f.initInformers(i, k8sI)
 	f.startInformers(i, k8sI)
-	f.run(c, getKey(ex_snapshot, t), "snapshots")
+	f.runQueueOnly(c, getKey(ex_snapshot, t), "snapshots")
 }
 
 func TestCreateSnapshotRFC3339(t *testing.T) {
@@ -296,6 +334,35 @@ func TestCreateSnapshotRFC3339(t *testing.T) {
 	ex_snapshot := newConfiguredSnapshot("test1", "InQueue")
         ex_snapshot.Spec.AvailableUntil.Time = time.Date(2020, time.July, 1, 2, 3, 4, 0, time.UTC)
 	f.expectUpdateSnapshotAction(ex_snapshot)
+
+	f.initInformers(i, k8sI)
+	f.startInformers(i, k8sI)
+	f.runQueueOnly(c, getKey(ex_snapshot, t), "snapshots")
+}
+
+func TestInProgressAndCompletedSnapshot(t *testing.T) {
+	f := newFixture(t)
+
+	// pre-existing snapshot resource
+	s1 := newConfiguredSnapshot("test1", "Completed")
+	f.snapshotLister = append(f.snapshotLister, s1)
+	f.objects = append(f.objects, s1)
+        // new snapshot resource
+	s2 := newConfiguredSnapshot("test2", "InQueue")
+	f.snapshotLister = append(f.snapshotLister, s2)
+	f.objects = append(f.objects, s2)
+	// bucket config
+	b := newObjectstoreConfig()
+	f.objects = append(f.objects, b)
+	secret := newCloudCredentialSecret()
+	f.kubeobjects = append(f.kubeobjects, secret)
+
+	c, i, k8sI := f.newController()
+
+	ex_snapshot := newConfiguredSnapshot("test2", "InProgress")
+	f.expectUpdateSnapshotAction(ex_snapshot)
+	ex2_snapshot := newConfiguredSnapshot("test2", "Completed")
+	f.expectUpdateSnapshotAction(ex2_snapshot)
 
 	f.initInformers(i, k8sI)
 	f.startInformers(i, k8sI)
@@ -322,7 +389,7 @@ func TestCreateRestore(t *testing.T) {
 
 	f.initInformers(i, k8sI)
 	f.startInformers(i, k8sI)
-	f.run(c, getKey(ex_restore, t), "restores")
+	f.runQueueOnly(c, getKey(ex_restore, t), "restores")
 }
 
 func int32Ptr(i int32) *int32 { return &i }

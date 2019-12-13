@@ -41,6 +41,7 @@ import (
 	listers "github.com/ryo-watanabe/k8s-snap/pkg/client/listers/clustersnapshot/v1alpha1"
 
 	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
+	"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
 )
 
 const controllerAgentName = "k8s-snapshot"
@@ -74,6 +75,8 @@ type Controller struct {
 
 	namespace string
 	labels map[string]string
+
+	clusterCmd cluster.Cluster
 }
 
 // NewController returns a new controller
@@ -85,7 +88,8 @@ func NewController(
 	restoreInformer informers.RestoreInformer,
 	namespace string,
 	housekeepstore, restoresnapshots, validatefileinfo bool,
-	maxretryelaspsedminutes int) *Controller {
+	maxretryelaspsedminutes int,
+	clusterCmd cluster.Cluster) *Controller {
 	//bucket *objectstore.Bucket) *Controller {
 
 	// Create event broadcaster
@@ -118,6 +122,7 @@ func NewController(
 			"app":        "k8s-snap",
 			"controller": "k8s-snap-controller",
 		},
+		clusterCmd:	   clusterCmd,
 	}
 
 	klog.Info("Setting up event handlers")

@@ -30,6 +30,7 @@ import (
 	clientset "github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned"
 	informers "github.com/ryo-watanabe/k8s-snap/pkg/client/informers/externalversions"
 	"github.com/ryo-watanabe/k8s-snap/pkg/signals"
+	"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
 )
 
 var (
@@ -100,6 +101,7 @@ func main() {
 		namespace,
 		housekeepstore, restoresnapshots, validatefileinfo,
 		maxretryelaspsedminutes,
+		cluster.NewClusterCmd(),
 	)
 
 	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go kubeInformerFactory.Start(stopCh)

@@ -31,6 +31,140 @@ var (
 	snapshotNamespace = "default"
 )
 
+type Case struct {
+	snapshots []*clustersnapshot.Snapshot
+	restores []*clustersnapshot.Restore
+	configs []*clustersnapshot.ObjectstoreConfig
+	secrets []*corev1.Secret
+	updatedSnapshots []*clustersnapshot.Snapshot
+	updatedRestores []*clustersnapshot.Restore
+	deleteSnapshots []*clustersnapshot.Snapshot
+	deleteRestores []*clustersnapshot.Restore
+	queueOnly bool
+	handleKey string
+}
+
+func TestSnapshot(t *testing.T) {
+
+	cases := []Case {
+		// 0:create snapshot
+		Case{
+			snapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "Completed"),
+				newConfiguredSnapshot("test2", ""),
+			},
+			updatedSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test2", "InQueue"),
+			},
+			queueOnly: true,
+			handleKey: "test2",
+		},
+		// 1:RFC3339
+		Case{
+			snapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", ""),
+			},
+			updatedSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "InQueue"),
+			},
+			queueOnly: true,
+			handleKey: "test1",
+		},
+		// 2:InQueue > InProgress > Completed
+		Case{
+			snapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "InQueue"),
+			},
+			updatedSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "InProgress"),
+				newConfiguredSnapshot("test1", "Completed"),
+			},
+			configs: []*clustersnapshot.ObjectstoreConfig{
+				newObjectstoreConfig(),
+			},
+			secrets: []*corev1.Secret{
+				newCloudCredentialSecret(),
+			},
+			handleKey: "test1",
+		},
+		// 3:InQueue > InProgress > Failed - secret not found
+		Case{
+			snapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "InQueue"),
+			},
+			updatedSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "InProgress"),
+				newConfiguredSnapshot("test1", "Failed"),
+			},
+			configs: []*clustersnapshot.ObjectstoreConfig{
+				newObjectstoreConfig(),
+			},
+			handleKey: "test1",
+		},
+		// 4:Add expiration to failed snapshot and delete
+		Case{
+			snapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "Failed"),
+			},
+			updatedSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "Failed"),
+			},
+			deleteSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "Failed"),
+			},
+			handleKey: "test1",
+		},
+	}
+
+	// Additional test data:
+
+	dur, _ := time.ParseDuration("720h0m0s")
+
+	// 0:Create snapshot
+	cases[0].updatedSnapshots[0].Spec.TTL.Duration = dur
+	// 1:RFC3339
+	cases[1].snapshots[0].Spec.AvailableUntil.Time, _ = time.Parse(time.RFC3339, "2020-07-01T02:03:04Z")
+	cases[1].updatedSnapshots[0].Spec.AvailableUntil.Time = time.Date(2020, time.July, 1, 2, 3, 4, 0, time.UTC)
+	// 2:InQueue > InProgress > Completed
+	// 3:InQueue > InProgress > Failed - secret not found
+	cases[3].updatedSnapshots[1].Status.Reason = "secrets \"cloudCredentialSecret\" not found"
+	// 4:Add expiration to failed snapshot
+	cases[4].snapshots[0].Spec.TTL.Duration = dur
+	cases[4].updatedSnapshots[0].Spec.TTL.Duration = dur
+	cases[4].updatedSnapshots[0].Status.AvailableUntil = metav1.NewTime(cases[4].updatedSnapshots[0].ObjectMeta.CreationTimestamp.Add(dur))
+	cases[4].updatedSnapshots[0].Status.TTL.Duration = dur
+
+	for _, c := range(cases) {
+		SnapshotTestCase(&c, t)
+	}
+}
+
+func TestRestore(t *testing.T) {
+
+	cases := []Case {
+		// create restore
+		Case{
+			restores: []*clustersnapshot.Restore{
+				newConfiguredRestore("test1", "Completed"),
+				newConfiguredRestore("test2", ""),
+			},
+			updatedRestores: []*clustersnapshot.Restore{
+				newConfiguredRestore("test2", "InQueue"),
+			},
+			queueOnly: true,
+			handleKey: "test2",
+		},
+	}
+
+	// Additional test data:
+	// Create restore
+	cases[0].updatedRestores[0].Spec.TTL.Duration, _ = time.ParseDuration("168h0m0s")
+
+	for _, c := range(cases) {
+		RestoreTestCase(&c, t)
+	}
+}
+
 type fixture struct {
 	t *testing.T
 
@@ -277,8 +411,16 @@ func (f *fixture) expectUpdateSnapshotAction(s *clustersnapshot.Snapshot) {
 	f.actions = append(f.actions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "snapshots"}, s.Namespace, s))
 }
 
+func (f *fixture) expectDeleteSnapshotAction(s *clustersnapshot.Snapshot) {
+	f.actions = append(f.actions, core.NewDeleteAction(schema.GroupVersionResource{Resource: "snapshots"}, s.Namespace, s.Name))
+}
+
 func (f *fixture) expectUpdateRestoreAction(s *clustersnapshot.Restore) {
 	f.actions = append(f.actions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "restores"}, s.Namespace, s))
+}
+
+func (f *fixture) expectDeleteRestoreAction(s *clustersnapshot.Restore) {
+	f.actions = append(f.actions, core.NewDeleteAction(schema.GroupVersionResource{Resource: "restores"}, s.Namespace, s.Name))
 }
 
 func (f *fixture) expectUpdateSnapshotStatusAction(s *clustersnapshot.Snapshot) {
@@ -297,6 +439,73 @@ func getKey(obj interface{}, t *testing.T) string {
 	return key
 }
 
+func SnapshotTestCase(c *Case, t *testing.T) {
+	f := newFixture(t)
+
+	for _, s := range(c.snapshots) {
+		f.snapshotLister = append(f.snapshotLister, s)
+		f.objects = append(f.objects, s)
+	}
+	for _, config := range(c.configs) {
+		f.objects = append(f.objects, config)
+	}
+	for _, secret := range(c.secrets) {
+		f.kubeobjects = append(f.kubeobjects, secret)
+	}
+
+	cntl, i, k8sI := f.newController()
+
+	for _, us := range(c.updatedSnapshots) {
+		f.expectUpdateSnapshotAction(us)
+	}
+	for _, ds := range(c.deleteSnapshots) {
+		f.expectDeleteSnapshotAction(ds)
+	}
+
+	f.initInformers(i, k8sI)
+	f.startInformers(i, k8sI)
+
+	if c.queueOnly {
+		f.runQueueOnly(cntl, "default/" + c.handleKey, "snapshots")
+	} else {
+		f.run(cntl, "default/" + c.handleKey, "snapshots")
+	}
+}
+
+func RestoreTestCase(c *Case, t *testing.T) {
+	f := newFixture(t)
+
+	for _, r := range(c.restores) {
+		f.restoreLister = append(f.restoreLister, r)
+		f.objects = append(f.objects, r)
+	}
+	for _, config := range(c.configs) {
+		f.objects = append(f.objects, config)
+	}
+	for _, secret := range(c.secrets) {
+		f.kubeobjects = append(f.kubeobjects, secret)
+	}
+
+	cntl, i, k8sI := f.newController()
+
+	for _, ur := range(c.updatedRestores) {
+		f.expectUpdateRestoreAction(ur)
+	}
+	for _, dr := range(c.deleteRestores) {
+		f.expectDeleteRestoreAction(dr)
+	}
+
+	f.initInformers(i, k8sI)
+	f.startInformers(i, k8sI)
+
+	if c.queueOnly {
+		f.runQueueOnly(cntl, "default/" + c.handleKey, "restores")
+	} else {
+		f.run(cntl, "default/" + c.handleKey, "restores")
+	}
+}
+
+/*
 func TestCreateSnapshot(t *testing.T) {
 	f := newFixture(t)
 
@@ -391,5 +600,6 @@ func TestCreateRestore(t *testing.T) {
 	f.startInformers(i, k8sI)
 	f.runQueueOnly(c, getKey(ex_restore, t), "restores")
 }
+*/
 
 func int32Ptr(i int32) *int32 { return &i }

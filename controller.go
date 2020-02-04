@@ -70,6 +70,7 @@ type Controller struct {
 	housekeepstore bool
 	restoresnapshots bool
 	validatefileinfo bool
+	insecure bool
 
 	maxretryelaspsedminutes int
 
@@ -87,7 +88,7 @@ func NewController(
 	snapshotInformer informers.SnapshotInformer,
 	restoreInformer informers.RestoreInformer,
 	namespace string,
-	housekeepstore, restoresnapshots, validatefileinfo bool,
+	housekeepstore, restoresnapshots, validatefileinfo, insecure bool,
 	maxretryelaspsedminutes int,
 	clusterCmd cluster.Cluster) *Controller {
 	//bucket *objectstore.Bucket) *Controller {
@@ -116,6 +117,7 @@ func NewController(
 		housekeepstore:    housekeepstore,
 		restoresnapshots:  restoresnapshots,
 		validatefileinfo:  validatefileinfo,
+		insecure:          insecure,
 		maxretryelaspsedminutes: maxretryelaspsedminutes,
 		namespace:         namespace,
 		labels:  map[string]string{
@@ -183,7 +185,9 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 			string(cred.Data["secretkey"]),
 			os.Spec.Endpoint,
 			os.Spec.Region,
-			os.Spec.Bucket)
+			os.Spec.Bucket,
+			c.insecure,
+		)
 		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s", bucket.Name, bucket.Endpoint, bucket.BucketName)
 
 		found, err := bucket.ChkBucket()

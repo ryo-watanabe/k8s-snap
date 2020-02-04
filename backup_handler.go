@@ -292,7 +292,7 @@ func (c *Controller) getBucket(objectstoreConfig string) (*objectstore.Bucket, e
 		return nil, err
 	}
 	bucket := objectstore.NewBucket(osConfig.ObjectMeta.Name, string(cred.Data["accesskey"]),
-		string(cred.Data["secretkey"]), osConfig.Spec.Endpoint, osConfig.Spec.Region, osConfig.Spec.Bucket)
+		string(cred.Data["secretkey"]), osConfig.Spec.Endpoint, osConfig.Spec.Region, osConfig.Spec.Bucket, c.insecure)
 
 	return bucket, nil
 }

@@ -47,7 +47,7 @@ func (c *Controller) getObjectList() ([]objectstore.ObjectInfo, error) {
 
 		// Set bucket
 		bucket := objectstore.NewBucket(os.ObjectMeta.Name, string(cred.Data["accesskey"]),
-                        string(cred.Data["secretkey"]), os.Spec.Endpoint, os.Spec.Region, os.Spec.Bucket)
+                        string(cred.Data["secretkey"]), os.Spec.Endpoint, os.Spec.Region, os.Spec.Bucket, c.insecure)
 
 		// Append objects list
 		objList, err := bucket.ListObjectInfo()

@@ -13,7 +13,7 @@ import (
 	"github.com/cenkalti/backoff"
 
 	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
-	"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
+	//"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
 	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
 )
 
@@ -131,7 +131,7 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 		b.Multiplier = 2.0
 		b.InitialInterval = 2 * time.Second
 		operationSnapshot := func() error {
-			return cluster.Snapshot(snapshot)
+			return c.clusterCmd.Snapshot(snapshot)
 		}
 		err = backoff.RetryNotify(operationSnapshot, b, retryNotify)
 		if err != nil {
@@ -145,7 +145,7 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 		// upload snapshot with backoff retry
 		b.Reset()
 		operationUpload := func() error {
-			return cluster.UploadSnapshot(snapshot, bucket)
+			return c.clusterCmd.UploadSnapshot(snapshot, bucket)
 		}
 		err = backoff.RetryNotify(operationUpload, b, retryNotify)
 		if err != nil {
@@ -292,7 +292,7 @@ func (c *Controller) getBucket(objectstoreConfig string) (*objectstore.Bucket, e
 		return nil, err
 	}
 	bucket := objectstore.NewBucket(osConfig.ObjectMeta.Name, string(cred.Data["accesskey"]),
-		string(cred.Data["secretkey"]), osConfig.Spec.Endpoint, osConfig.Spec.Region, osConfig.Spec.Bucket)
+		string(cred.Data["secretkey"]), osConfig.Spec.Endpoint, osConfig.Spec.Region, osConfig.Spec.Bucket, c.insecure)
 
 	return bucket, nil
 }

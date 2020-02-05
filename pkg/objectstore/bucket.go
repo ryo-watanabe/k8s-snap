@@ -4,6 +4,8 @@ import (
 	"os"
 	"fmt"
 	"time"
+	"net/http"
+	"crypto/tls"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -13,6 +15,15 @@ import (
 
 	"k8s.io/klog"
 )
+
+type Objectstore interface {
+	ChkBucket() (bool, error)
+	Upload(file *os.File, filename string) error
+	Download(file *os.File, filename string) error
+	Delete(filename string) error
+	GetObjectInfo(filename string) (*ObjectInfo, error)
+	ListObjectInfo() ([]ObjectInfo, error)
+}
 
 type ObjectInfo struct {
 	Name string
@@ -28,9 +39,10 @@ type Bucket struct {
 	Endpoint string
 	Region string
 	BucketName string
+	insecure bool
 }
 
-func NewBucket(name, accessKey, secretKey, endpoint, region, bucketName string) *Bucket {
+func NewBucket(name, accessKey, secretKey, endpoint, region, bucketName string, insecure bool) *Bucket {
 	return &Bucket{
 		Name: name,
 		AccessKey: accessKey,
@@ -38,12 +50,23 @@ func NewBucket(name, accessKey, secretKey, endpoint, region, bucketName string) 
 		Endpoint: endpoint,
 		Region: region,
 		BucketName: bucketName,
+		insecure: insecure,
 	}
 }
 
 func (b *Bucket) setSession() (*session.Session, error) {
 	creds := credentials.NewStaticCredentials(b.AccessKey, b.SecretKey, "")
+	var client *http.Client
+	if b.insecure {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client = &http.Client{Transport: tr}
+	} else {
+		client = http.DefaultClient
+	}
 	sess, err := session.NewSession(&aws.Config{
+		HTTPClient: client,
 		Credentials: creds,
 		Region: aws.String(b.Region),
 		Endpoint: &b.Endpoint,

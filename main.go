@@ -30,6 +30,7 @@ import (
 	clientset "github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned"
 	informers "github.com/ryo-watanabe/k8s-snap/pkg/client/informers/externalversions"
 	"github.com/ryo-watanabe/k8s-snap/pkg/signals"
+	"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
 )
 
 var (
@@ -41,6 +42,7 @@ var (
 	housekeepstore bool
 	restoresnapshots bool
 	validatefileinfo bool
+	insecure bool
 	maxretryelaspsedminutes int
 )
 
@@ -98,8 +100,9 @@ func main() {
 		cbInformerFactory.Clustersnapshot().V1alpha1().Snapshots(),
 		cbInformerFactory.Clustersnapshot().V1alpha1().Restores(),
 		namespace,
-		housekeepstore, restoresnapshots, validatefileinfo,
+		housekeepstore, restoresnapshots, validatefileinfo, insecure,
 		maxretryelaspsedminutes,
+		cluster.NewClusterCmd(),
 	)
 
 	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go kubeInformerFactory.Start(stopCh)
@@ -120,5 +123,6 @@ func init() {
 	flag.BoolVar(&housekeepstore, "housekeepstore", true, "Clean up orphan files on object store regularly")
 	flag.BoolVar(&restoresnapshots, "restoresnapshots", true, "Restore snapshot from object store on start")
 	flag.BoolVar(&validatefileinfo, "validatefileinfo", true, "Validate size and timestamp of files on object store")
+	flag.BoolVar(&insecure, "insecure", false, "Skip ssl certificate verification on connecting object store")
 	flag.IntVar(&maxretryelaspsedminutes, "maxretryelaspsedminutes", 5, "Max elaspsed minutes to retry snapshot")
 }

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	//corev1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -22,6 +22,7 @@ import (
 	informers "github.com/ryo-watanabe/k8s-snap/pkg/client/informers/externalversions"
 
 	"github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned/fake"
+	"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
 )
 
 var (
@@ -29,6 +30,140 @@ var (
 	noResyncPeriodFunc = func() time.Duration { return 0 }
 	snapshotNamespace = "default"
 )
+
+type Case struct {
+	snapshots []*clustersnapshot.Snapshot
+	restores []*clustersnapshot.Restore
+	configs []*clustersnapshot.ObjectstoreConfig
+	secrets []*corev1.Secret
+	updatedSnapshots []*clustersnapshot.Snapshot
+	updatedRestores []*clustersnapshot.Restore
+	deleteSnapshots []*clustersnapshot.Snapshot
+	deleteRestores []*clustersnapshot.Restore
+	queueOnly bool
+	handleKey string
+}
+
+func TestSnapshot(t *testing.T) {
+
+	cases := []Case {
+		// 0:create snapshot
+		Case{
+			snapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "Completed"),
+				newConfiguredSnapshot("test2", ""),
+			},
+			updatedSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test2", "InQueue"),
+			},
+			queueOnly: true,
+			handleKey: "test2",
+		},
+		// 1:RFC3339
+		Case{
+			snapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", ""),
+			},
+			updatedSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "InQueue"),
+			},
+			queueOnly: true,
+			handleKey: "test1",
+		},
+		// 2:InQueue > InProgress > Completed
+		Case{
+			snapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "InQueue"),
+			},
+			updatedSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "InProgress"),
+				newConfiguredSnapshot("test1", "Completed"),
+			},
+			configs: []*clustersnapshot.ObjectstoreConfig{
+				newObjectstoreConfig(),
+			},
+			secrets: []*corev1.Secret{
+				newCloudCredentialSecret(),
+			},
+			handleKey: "test1",
+		},
+		// 3:InQueue > InProgress > Failed - secret not found
+		Case{
+			snapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "InQueue"),
+			},
+			updatedSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "InProgress"),
+				newConfiguredSnapshot("test1", "Failed"),
+			},
+			configs: []*clustersnapshot.ObjectstoreConfig{
+				newObjectstoreConfig(),
+			},
+			handleKey: "test1",
+		},
+		// 4:Add expiration to failed snapshot and delete
+		Case{
+			snapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "Failed"),
+			},
+			updatedSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "Failed"),
+			},
+			deleteSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "Failed"),
+			},
+			handleKey: "test1",
+		},
+	}
+
+	// Additional test data:
+
+	dur, _ := time.ParseDuration("720h0m0s")
+
+	// 0:Create snapshot
+	cases[0].updatedSnapshots[0].Spec.TTL.Duration = dur
+	// 1:RFC3339
+	cases[1].snapshots[0].Spec.AvailableUntil.Time, _ = time.Parse(time.RFC3339, "2020-07-01T02:03:04Z")
+	cases[1].updatedSnapshots[0].Spec.AvailableUntil.Time = time.Date(2020, time.July, 1, 2, 3, 4, 0, time.UTC)
+	// 2:InQueue > InProgress > Completed
+	// 3:InQueue > InProgress > Failed - secret not found
+	cases[3].updatedSnapshots[1].Status.Reason = "secrets \"cloudCredentialSecret\" not found"
+	// 4:Add expiration to failed snapshot
+	cases[4].snapshots[0].Spec.TTL.Duration = dur
+	cases[4].updatedSnapshots[0].Spec.TTL.Duration = dur
+	cases[4].updatedSnapshots[0].Status.AvailableUntil = metav1.NewTime(cases[4].updatedSnapshots[0].ObjectMeta.CreationTimestamp.Add(dur))
+	cases[4].updatedSnapshots[0].Status.TTL.Duration = dur
+
+	for _, c := range(cases) {
+		SnapshotTestCase(&c, t)
+	}
+}
+
+func TestRestore(t *testing.T) {
+
+	cases := []Case {
+		// create restore
+		Case{
+			restores: []*clustersnapshot.Restore{
+				newConfiguredRestore("test1", "Completed"),
+				newConfiguredRestore("test2", ""),
+			},
+			updatedRestores: []*clustersnapshot.Restore{
+				newConfiguredRestore("test2", "InQueue"),
+			},
+			queueOnly: true,
+			handleKey: "test2",
+		},
+	}
+
+	// Additional test data:
+	// Create restore
+	cases[0].updatedRestores[0].Spec.TTL.Duration, _ = time.ParseDuration("168h0m0s")
+
+	for _, c := range(cases) {
+		RestoreTestCase(&c, t)
+	}
+}
 
 type fixture struct {
 	t *testing.T
@@ -73,6 +208,54 @@ func newConfiguredSnapshot(name, phase string) *clustersnapshot.Snapshot {
 	}
 }
 
+func newObjectstoreConfig() *clustersnapshot.ObjectstoreConfig {
+	return &clustersnapshot.ObjectstoreConfig{
+		TypeMeta: metav1.TypeMeta{APIVersion: clustersnapshot.SchemeGroupVersion.String()},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "objectstoreConfig",
+			Namespace: metav1.NamespaceDefault,
+		},
+		Spec: clustersnapshot.ObjectstoreConfigSpec{
+			Region: "refion",
+			Endpoint: "endpoint",
+			Bucket: "bucket",
+			CloudCredentialSecret: "cloudCredentialSecret",
+		},
+	}
+}
+
+func newCloudCredentialSecret() *corev1.Secret {
+	return &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind:"Secret"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cloudCredentialSecret",
+			Namespace: metav1.NamespaceDefault,
+		},
+		Data: map[string][]byte {
+			"accesskey": []byte("YWNjZXNza2V5"),
+			"secretkey": []byte("c2VjcmV0a2V5"),
+		},
+	}
+}
+
+func newConfiguredRestore(name, phase string) *clustersnapshot.Restore {
+	return &clustersnapshot.Restore{
+		TypeMeta: metav1.TypeMeta{APIVersion: clustersnapshot.SchemeGroupVersion.String()},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: metav1.NamespaceDefault,
+		},
+		Spec: clustersnapshot.RestoreSpec{
+			ClusterName:    name,
+			Kubeconfig:     "kubeconfig",
+			SnapshotName:  "snapshot",
+		},
+		Status: clustersnapshot.RestoreStatus{
+			Phase:                   phase,
+		},
+	}
+}
+
 //func (f *fixture) newController() (*Controller, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 func (f *fixture) newController() (*Controller, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 	f.client = fake.NewSimpleClientset(f.objects...)
@@ -88,7 +271,9 @@ func (f *fixture) newController() (*Controller, informers.SharedInformerFactory,
 		f.kubeclient, f.dynamic, f.client,
 		i.Clustersnapshot().V1alpha1().Snapshots(),
                 i.Clustersnapshot().V1alpha1().Restores(),
-		snapshotNamespace, true, true, true, maxRetryMin)
+		snapshotNamespace, true, true, true, maxRetryMin,
+		cluster.NewFakeClusterCmd(),
+	)
 
 	c.snapshotsSynced = alwaysReady
         c.restoresSynced = alwaysReady
@@ -114,22 +299,31 @@ func (f *fixture) startInformers(i informers.SharedInformerFactory, k8sI kubeinf
 	//k8sI.Start(stopCh)
 }
 
-func (f *fixture) run(c *Controller, snapshotName string) {
-	f.runTest(c, snapshotName, false)
+func (f *fixture) run(c *Controller, name, res string) {
+	f.runTest(c, name, res, false, false)
 }
 
-func (f *fixture) runExpectError(c *Controller, snapshotName string) {
-	f.runTest(c, snapshotName, true)
+func (f *fixture) runQueueOnly(c *Controller, name, res string) {
+	f.runTest(c, name, res, false, true)
 }
 
-func (f *fixture) runTest(c *Controller, snapshotName string, expectError bool) {
+func (f *fixture) runExpectError(c *Controller, name, res string) {
+	f.runTest(c, name, res, true, false)
+}
 
-	if snapshotName != "" {
-		err := c.snapshotSyncHandler(snapshotName, true)
+func (f *fixture) runTest(c *Controller, name, res string, expectError, queueOnly bool) {
+
+	if name != "" {
+		var err error
+		if res == "restores" {
+			err = c.restoreSyncHandler(name, queueOnly)
+		} else {
+			err = c.snapshotSyncHandler(name, queueOnly)
+		}
 		if !expectError && err != nil {
-			f.t.Errorf("error syncing snapshot: %v", err)
+			f.t.Errorf("error syncing custom resource: %v", err)
 		} else if expectError && err == nil {
-			f.t.Error("expected error syncing snapshot, got nil")
+			f.t.Error("expected error syncing custom resource, got nil")
 		}
 	}
 
@@ -202,6 +396,7 @@ func filterInformerActions(actions []core.Action) []core.Action {
 	ret := []core.Action{}
 	for _, action := range actions {
 		if action.GetNamespace() == snapshotNamespace && (
+				action.Matches("get", "objectstoreconfigs") ||
 				action.Matches("list", "snapshots") ||
 				action.Matches("watch", "snapshots")) {
 			continue
@@ -216,6 +411,18 @@ func (f *fixture) expectUpdateSnapshotAction(s *clustersnapshot.Snapshot) {
 	f.actions = append(f.actions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "snapshots"}, s.Namespace, s))
 }
 
+func (f *fixture) expectDeleteSnapshotAction(s *clustersnapshot.Snapshot) {
+	f.actions = append(f.actions, core.NewDeleteAction(schema.GroupVersionResource{Resource: "snapshots"}, s.Namespace, s.Name))
+}
+
+func (f *fixture) expectUpdateRestoreAction(s *clustersnapshot.Restore) {
+	f.actions = append(f.actions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "restores"}, s.Namespace, s))
+}
+
+func (f *fixture) expectDeleteRestoreAction(s *clustersnapshot.Restore) {
+	f.actions = append(f.actions, core.NewDeleteAction(schema.GroupVersionResource{Resource: "restores"}, s.Namespace, s.Name))
+}
+
 func (f *fixture) expectUpdateSnapshotStatusAction(s *clustersnapshot.Snapshot) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "snapshots"}, s.Namespace, s)
 	// TODO: Until #38113 is merged, we can't use Subresource
@@ -223,15 +430,82 @@ func (f *fixture) expectUpdateSnapshotStatusAction(s *clustersnapshot.Snapshot) 
 	f.actions = append(f.actions, action)
 }
 
-func getKey(snapshot *clustersnapshot.Snapshot, t *testing.T) string {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(snapshot)
+func getKey(obj interface{}, t *testing.T) string {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
-		t.Errorf("Unexpected error getting key for proxy %v: %v", snapshot.Name, err)
+		t.Errorf("Unexpected error getting key for proxy %v: %v", obj, err)
 		return ""
 	}
 	return key
 }
 
+func SnapshotTestCase(c *Case, t *testing.T) {
+	f := newFixture(t)
+
+	for _, s := range(c.snapshots) {
+		f.snapshotLister = append(f.snapshotLister, s)
+		f.objects = append(f.objects, s)
+	}
+	for _, config := range(c.configs) {
+		f.objects = append(f.objects, config)
+	}
+	for _, secret := range(c.secrets) {
+		f.kubeobjects = append(f.kubeobjects, secret)
+	}
+
+	cntl, i, k8sI := f.newController()
+
+	for _, us := range(c.updatedSnapshots) {
+		f.expectUpdateSnapshotAction(us)
+	}
+	for _, ds := range(c.deleteSnapshots) {
+		f.expectDeleteSnapshotAction(ds)
+	}
+
+	f.initInformers(i, k8sI)
+	f.startInformers(i, k8sI)
+
+	if c.queueOnly {
+		f.runQueueOnly(cntl, "default/" + c.handleKey, "snapshots")
+	} else {
+		f.run(cntl, "default/" + c.handleKey, "snapshots")
+	}
+}
+
+func RestoreTestCase(c *Case, t *testing.T) {
+	f := newFixture(t)
+
+	for _, r := range(c.restores) {
+		f.restoreLister = append(f.restoreLister, r)
+		f.objects = append(f.objects, r)
+	}
+	for _, config := range(c.configs) {
+		f.objects = append(f.objects, config)
+	}
+	for _, secret := range(c.secrets) {
+		f.kubeobjects = append(f.kubeobjects, secret)
+	}
+
+	cntl, i, k8sI := f.newController()
+
+	for _, ur := range(c.updatedRestores) {
+		f.expectUpdateRestoreAction(ur)
+	}
+	for _, dr := range(c.deleteRestores) {
+		f.expectDeleteRestoreAction(dr)
+	}
+
+	f.initInformers(i, k8sI)
+	f.startInformers(i, k8sI)
+
+	if c.queueOnly {
+		f.runQueueOnly(cntl, "default/" + c.handleKey, "restores")
+	} else {
+		f.run(cntl, "default/" + c.handleKey, "restores")
+	}
+}
+
+/*
 func TestCreateSnapshot(t *testing.T) {
 	f := newFixture(t)
 
@@ -252,7 +526,7 @@ func TestCreateSnapshot(t *testing.T) {
 
 	f.initInformers(i, k8sI)
 	f.startInformers(i, k8sI)
-	f.run(c, getKey(ex_snapshot, t))
+	f.runQueueOnly(c, getKey(ex_snapshot, t), "snapshots")
 }
 
 func TestCreateSnapshotRFC3339(t *testing.T) {
@@ -272,7 +546,60 @@ func TestCreateSnapshotRFC3339(t *testing.T) {
 
 	f.initInformers(i, k8sI)
 	f.startInformers(i, k8sI)
-	f.run(c, getKey(ex_snapshot, t))
+	f.runQueueOnly(c, getKey(ex_snapshot, t), "snapshots")
 }
+
+func TestInProgressAndCompletedSnapshot(t *testing.T) {
+	f := newFixture(t)
+
+	// pre-existing snapshot resource
+	s1 := newConfiguredSnapshot("test1", "Completed")
+	f.snapshotLister = append(f.snapshotLister, s1)
+	f.objects = append(f.objects, s1)
+        // new snapshot resource
+	s2 := newConfiguredSnapshot("test2", "InQueue")
+	f.snapshotLister = append(f.snapshotLister, s2)
+	f.objects = append(f.objects, s2)
+	// bucket config
+	b := newObjectstoreConfig()
+	f.objects = append(f.objects, b)
+	secret := newCloudCredentialSecret()
+	f.kubeobjects = append(f.kubeobjects, secret)
+
+	c, i, k8sI := f.newController()
+
+	ex_snapshot := newConfiguredSnapshot("test2", "InProgress")
+	f.expectUpdateSnapshotAction(ex_snapshot)
+	ex2_snapshot := newConfiguredSnapshot("test2", "Completed")
+	f.expectUpdateSnapshotAction(ex2_snapshot)
+
+	f.initInformers(i, k8sI)
+	f.startInformers(i, k8sI)
+	f.run(c, getKey(ex_snapshot, t), "snapshots")
+}
+
+func TestCreateRestore(t *testing.T) {
+	f := newFixture(t)
+
+	// pre-existing snapshot resource
+	s1 := newConfiguredRestore("test1", "Completed")
+	f.restoreLister = append(f.restoreLister, s1)
+	f.objects = append(f.objects, s1)
+        // new snapshot resource
+	s2 := newConfiguredRestore("test2", "")
+	f.restoreLister = append(f.restoreLister, s2)
+	f.objects = append(f.objects, s2)
+
+	c, i, k8sI := f.newController()
+
+	ex_restore := newConfiguredRestore("test2", "InQueue")
+        ex_restore.Spec.TTL.Duration, _ = time.ParseDuration("168h0m0s")
+	f.expectUpdateRestoreAction(ex_restore)
+
+	f.initInformers(i, k8sI)
+	f.startInformers(i, k8sI)
+	f.runQueueOnly(c, getKey(ex_restore, t), "restores")
+}
+*/
 
 func int32Ptr(i int32) *int32 { return &i }

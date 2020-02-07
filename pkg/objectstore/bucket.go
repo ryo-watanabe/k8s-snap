@@ -102,6 +102,18 @@ func (b *Bucket) ChkBucket() (bool, error) {
 	return found, nil
 }
 
+func (b *Bucket) CreateBucket() error {
+	// set session
+	sess, err := b.setSession()
+	if err != nil {
+		return err
+	}
+	// Create bucket
+	svc := s3.New(sess)
+	_, err = svc.CreateBucket(&s3.CreateBucketInput{Bucket: aws.String(b.BucketName)})
+	return err
+}
+
 func (b *Bucket) Upload(file *os.File, filename string) error {
 	// set session
 	sess, err := b.setSession()

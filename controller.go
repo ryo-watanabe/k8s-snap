@@ -71,6 +71,7 @@ type Controller struct {
 	restoresnapshots bool
 	validatefileinfo bool
 	insecure bool
+	createbucket bool
 
 	maxretryelaspsedminutes int
 
@@ -88,7 +89,7 @@ func NewController(
 	snapshotInformer informers.SnapshotInformer,
 	restoreInformer informers.RestoreInformer,
 	namespace string,
-	housekeepstore, restoresnapshots, validatefileinfo, insecure bool,
+	housekeepstore, restoresnapshots, validatefileinfo, insecure, createbucket bool,
 	maxretryelaspsedminutes int,
 	clusterCmd cluster.Cluster) *Controller {
 	//bucket *objectstore.Bucket) *Controller {
@@ -118,6 +119,7 @@ func NewController(
 		restoresnapshots:  restoresnapshots,
 		validatefileinfo:  validatefileinfo,
 		insecure:          insecure,
+		createbucket:      createbucket,
 		maxretryelaspsedminutes: maxretryelaspsedminutes,
 		namespace:         namespace,
 		labels:  map[string]string{
@@ -195,7 +197,15 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 			klog.Fatalf("Check bucket error : %s", err.Error())
 		}
 		if !found {
-			klog.Fatalf("Bucket %s not found", bucket.BucketName)
+			if c.createbucket {
+				klog.Infof("Creating bucket %s", bucket.BucketName)
+				err = bucket.CreateBucket()
+				if err != nil {
+					klog.Fatalf("Create bucket error : %s", err.Error())
+				}
+			} else {
+				klog.Fatalf("Bucket %s not found", bucket.BucketName)
+			}
 		}
 
 		objList, err := bucket.ListObjectInfo()

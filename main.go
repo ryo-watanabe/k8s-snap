@@ -43,6 +43,7 @@ var (
 	restoresnapshots bool
 	validatefileinfo bool
 	insecure bool
+	createbucket bool
 	maxretryelaspsedminutes int
 )
 
@@ -100,7 +101,7 @@ func main() {
 		cbInformerFactory.Clustersnapshot().V1alpha1().Snapshots(),
 		cbInformerFactory.Clustersnapshot().V1alpha1().Restores(),
 		namespace,
-		housekeepstore, restoresnapshots, validatefileinfo, insecure,
+		housekeepstore, restoresnapshots, validatefileinfo, insecure, createbucket,
 		maxretryelaspsedminutes,
 		cluster.NewClusterCmd(),
 	)
@@ -124,5 +125,6 @@ func init() {
 	flag.BoolVar(&restoresnapshots, "restoresnapshots", true, "Restore snapshot from object store on start")
 	flag.BoolVar(&validatefileinfo, "validatefileinfo", true, "Validate size and timestamp of files on object store")
 	flag.BoolVar(&insecure, "insecure", false, "Skip ssl certificate verification on connecting object store")
+	flag.BoolVar(&createbucket, "createbucket", false, "Create bucket if not exists")
 	flag.IntVar(&maxretryelaspsedminutes, "maxretryelaspsedminutes", 5, "Max elaspsed minutes to retry snapshot")
 }

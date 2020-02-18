@@ -271,7 +271,7 @@ func (f *fixture) newController() (*Controller, informers.SharedInformerFactory,
 		f.kubeclient, f.dynamic, f.client,
 		i.Clustersnapshot().V1alpha1().Snapshots(),
                 i.Clustersnapshot().V1alpha1().Restores(),
-		snapshotNamespace, true, true, true, maxRetryMin,
+		snapshotNamespace, true, true, true, false, false, maxRetryMin,
 		cluster.NewFakeClusterCmd(),
 	)
 

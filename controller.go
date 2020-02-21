@@ -26,9 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/dynamic"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -40,43 +40,37 @@ import (
 	informers "github.com/ryo-watanabe/k8s-snap/pkg/client/informers/externalversions/clustersnapshot/v1alpha1"
 	listers "github.com/ryo-watanabe/k8s-snap/pkg/client/listers/clustersnapshot/v1alpha1"
 
-	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
 	"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
+	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
 )
 
 const controllerAgentName = "k8s-snapshot"
 
-const (
-	ErrResourceExists = "ErrResourceExists"
-	MessageResourceExists = "Resource %q already exists and is not managed by k8s-snapshot"
-)
-
-
 // Controller is the controller implementation for Snapshot and Restore resources
 type Controller struct {
 	kubeclientset kubernetes.Interface
-	dynamic dynamic.Interface
-	cbclientset clientset.Interface
+	dynamic       dynamic.Interface
+	cbclientset   clientset.Interface
 
-	snapshotLister listers.SnapshotLister
+	snapshotLister  listers.SnapshotLister
 	snapshotsSynced cache.InformerSynced
-	restoreLister listers.RestoreLister
-	restoresSynced cache.InformerSynced
+	restoreLister   listers.RestoreLister
+	restoresSynced  cache.InformerSynced
 
 	snapshotQueue workqueue.RateLimitingInterface
-	restoreQueue workqueue.RateLimitingInterface
-	recorder record.EventRecorder
+	restoreQueue  workqueue.RateLimitingInterface
+	recorder      record.EventRecorder
 
-	housekeepstore bool
+	housekeepstore   bool
 	restoresnapshots bool
 	validatefileinfo bool
-	insecure bool
-	createbucket bool
+	insecure         bool
+	createbucket     bool
 
 	maxretryelaspsedminutes int
 
 	namespace string
-	labels map[string]string
+	labels    map[string]string
 
 	clusterCmd cluster.Cluster
 }
@@ -105,28 +99,28 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:     kubeclientset,
-		cbclientset:       cbclientset,
-		dynamic:           dynamic,
-		snapshotLister:    snapshotInformer.Lister(),
-		snapshotsSynced:   snapshotInformer.Informer().HasSynced,
-		restoreLister:     restoreInformer.Lister(),
-		restoresSynced:    restoreInformer.Informer().HasSynced,
-		snapshotQueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Snapshots"),
-		restoreQueue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Restores"),
-		recorder:          recorder,
-		housekeepstore:    housekeepstore,
-		restoresnapshots:  restoresnapshots,
-		validatefileinfo:  validatefileinfo,
-		insecure:          insecure,
-		createbucket:      createbucket,
+		kubeclientset:           kubeclientset,
+		cbclientset:             cbclientset,
+		dynamic:                 dynamic,
+		snapshotLister:          snapshotInformer.Lister(),
+		snapshotsSynced:         snapshotInformer.Informer().HasSynced,
+		restoreLister:           restoreInformer.Lister(),
+		restoresSynced:          restoreInformer.Informer().HasSynced,
+		snapshotQueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Snapshots"),
+		restoreQueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Restores"),
+		recorder:                recorder,
+		housekeepstore:          housekeepstore,
+		restoresnapshots:        restoresnapshots,
+		validatefileinfo:        validatefileinfo,
+		insecure:                insecure,
+		createbucket:            createbucket,
 		maxretryelaspsedminutes: maxretryelaspsedminutes,
-		namespace:         namespace,
-		labels:  map[string]string{
+		namespace:               namespace,
+		labels: map[string]string{
 			"app":        "k8s-snap",
 			"controller": "k8s-snap-controller",
 		},
-		clusterCmd:	   clusterCmd,
+		clusterCmd: clusterCmd,
 	}
 
 	klog.Info("Setting up event handlers")
@@ -247,7 +241,7 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 	}
 
 	// Start object syncer
-	go wait.Until(c.runObjectSyncer, time.Duration(300) * time.Second, stopCh)
+	go wait.Until(c.runObjectSyncer, time.Duration(300)*time.Second, stopCh)
 
 	klog.Info("Started workers")
 	<-stopCh

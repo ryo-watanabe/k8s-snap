@@ -11,9 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/diff"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	kubeinformers "k8s.io/client-go/informers"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
-	dynamicfake "k8s.io/client-go/dynamic/fake"
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -28,25 +28,25 @@ import (
 var (
 	alwaysReady        = func() bool { return true }
 	noResyncPeriodFunc = func() time.Duration { return 0 }
-	snapshotNamespace = "default"
+	snapshotNamespace  = "default"
 )
 
 type Case struct {
-	snapshots []*clustersnapshot.Snapshot
-	restores []*clustersnapshot.Restore
-	configs []*clustersnapshot.ObjectstoreConfig
-	secrets []*corev1.Secret
+	snapshots        []*clustersnapshot.Snapshot
+	restores         []*clustersnapshot.Restore
+	configs          []*clustersnapshot.ObjectstoreConfig
+	secrets          []*corev1.Secret
 	updatedSnapshots []*clustersnapshot.Snapshot
-	updatedRestores []*clustersnapshot.Restore
-	deleteSnapshots []*clustersnapshot.Snapshot
-	deleteRestores []*clustersnapshot.Restore
-	queueOnly bool
-	handleKey string
+	updatedRestores  []*clustersnapshot.Restore
+	deleteSnapshots  []*clustersnapshot.Snapshot
+	deleteRestores   []*clustersnapshot.Restore
+	queueOnly        bool
+	handleKey        string
 }
 
 func TestSnapshot(t *testing.T) {
 
-	cases := []Case {
+	cases := []Case{
 		// 0:create snapshot
 		Case{
 			snapshots: []*clustersnapshot.Snapshot{
@@ -134,14 +134,14 @@ func TestSnapshot(t *testing.T) {
 	cases[4].updatedSnapshots[0].Status.AvailableUntil = metav1.NewTime(cases[4].updatedSnapshots[0].ObjectMeta.CreationTimestamp.Add(dur))
 	cases[4].updatedSnapshots[0].Status.TTL.Duration = dur
 
-	for _, c := range(cases) {
+	for _, c := range cases {
 		SnapshotTestCase(&c, t)
 	}
 }
 
 func TestRestore(t *testing.T) {
 
-	cases := []Case {
+	cases := []Case{
 		// create restore
 		Case{
 			restores: []*clustersnapshot.Restore{
@@ -160,7 +160,7 @@ func TestRestore(t *testing.T) {
 	// Create restore
 	cases[0].updatedRestores[0].Spec.TTL.Duration, _ = time.ParseDuration("168h0m0s")
 
-	for _, c := range(cases) {
+	for _, c := range cases {
 		RestoreTestCase(&c, t)
 	}
 }
@@ -169,11 +169,11 @@ type fixture struct {
 	t *testing.T
 
 	client     *fake.Clientset
-	dynamic	   *dynamicfake.FakeDynamicClient
+	dynamic    *dynamicfake.FakeDynamicClient
 	kubeclient *k8sfake.Clientset
 	// Objects to put in the store.
-	snapshotLister     []*clustersnapshot.Snapshot
-        restoreLister     []*clustersnapshot.Restore
+	snapshotLister []*clustersnapshot.Snapshot
+	restoreLister  []*clustersnapshot.Restore
 	// Actions expected to happen on the client.
 	kubeactions []core.Action
 	actions     []core.Action
@@ -198,12 +198,12 @@ func newConfiguredSnapshot(name, phase string) *clustersnapshot.Snapshot {
 			Namespace: metav1.NamespaceDefault,
 		},
 		Spec: clustersnapshot.SnapshotSpec{
-			ClusterName:    name,
-			Kubeconfig:     "kubeconfig",
-			ObjectstoreConfig:  "objectstoreConfig",
+			ClusterName:       name,
+			Kubeconfig:        "kubeconfig",
+			ObjectstoreConfig: "objectstoreConfig",
 		},
 		Status: clustersnapshot.SnapshotStatus{
-			Phase:                   phase,
+			Phase: phase,
 		},
 	}
 }
@@ -216,9 +216,9 @@ func newObjectstoreConfig() *clustersnapshot.ObjectstoreConfig {
 			Namespace: metav1.NamespaceDefault,
 		},
 		Spec: clustersnapshot.ObjectstoreConfigSpec{
-			Region: "refion",
-			Endpoint: "endpoint",
-			Bucket: "bucket",
+			Region:                "refion",
+			Endpoint:              "endpoint",
+			Bucket:                "bucket",
 			CloudCredentialSecret: "cloudCredentialSecret",
 		},
 	}
@@ -226,12 +226,12 @@ func newObjectstoreConfig() *clustersnapshot.ObjectstoreConfig {
 
 func newCloudCredentialSecret() *corev1.Secret {
 	return &corev1.Secret{
-		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind:"Secret"},
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Secret"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cloudCredentialSecret",
 			Namespace: metav1.NamespaceDefault,
 		},
-		Data: map[string][]byte {
+		Data: map[string][]byte{
 			"accesskey": []byte("YWNjZXNza2V5"),
 			"secretkey": []byte("c2VjcmV0a2V5"),
 		},
@@ -246,12 +246,12 @@ func newConfiguredRestore(name, phase string) *clustersnapshot.Restore {
 			Namespace: metav1.NamespaceDefault,
 		},
 		Spec: clustersnapshot.RestoreSpec{
-			ClusterName:    name,
-			Kubeconfig:     "kubeconfig",
-			SnapshotName:  "snapshot",
+			ClusterName:  name,
+			Kubeconfig:   "kubeconfig",
+			SnapshotName: "snapshot",
 		},
 		Status: clustersnapshot.RestoreStatus{
-			Phase:                   phase,
+			Phase: phase,
 		},
 	}
 }
@@ -270,13 +270,13 @@ func (f *fixture) newController() (*Controller, informers.SharedInformerFactory,
 	c := NewController(
 		f.kubeclient, f.dynamic, f.client,
 		i.Clustersnapshot().V1alpha1().Snapshots(),
-                i.Clustersnapshot().V1alpha1().Restores(),
+		i.Clustersnapshot().V1alpha1().Restores(),
 		snapshotNamespace, true, true, true, false, false, maxRetryMin,
 		cluster.NewFakeClusterCmd(),
 	)
 
 	c.snapshotsSynced = alwaysReady
-        c.restoresSynced = alwaysReady
+	c.restoresSynced = alwaysReady
 	c.recorder = &record.FakeRecorder{}
 
 	return c, i, k8sI
@@ -287,7 +287,7 @@ func (f *fixture) initInformers(i informers.SharedInformerFactory, k8sI kubeinfo
 		i.Clustersnapshot().V1alpha1().Snapshots().Informer().GetIndexer().Add(p)
 	}
 
-        for _, p := range f.restoreLister {
+	for _, p := range f.restoreLister {
 		i.Clustersnapshot().V1alpha1().Restores().Informer().GetIndexer().Add(p)
 	}
 }
@@ -395,10 +395,9 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 func filterInformerActions(actions []core.Action) []core.Action {
 	ret := []core.Action{}
 	for _, action := range actions {
-		if action.GetNamespace() == snapshotNamespace && (
-				action.Matches("get", "objectstoreconfigs") ||
-				action.Matches("list", "snapshots") ||
-				action.Matches("watch", "snapshots")) {
+		if action.GetNamespace() == snapshotNamespace && (action.Matches("get", "objectstoreconfigs") ||
+			action.Matches("list", "snapshots") ||
+			action.Matches("watch", "snapshots")) {
 			continue
 		}
 		ret = append(ret, action)
@@ -442,23 +441,23 @@ func getKey(obj interface{}, t *testing.T) string {
 func SnapshotTestCase(c *Case, t *testing.T) {
 	f := newFixture(t)
 
-	for _, s := range(c.snapshots) {
+	for _, s := range c.snapshots {
 		f.snapshotLister = append(f.snapshotLister, s)
 		f.objects = append(f.objects, s)
 	}
-	for _, config := range(c.configs) {
+	for _, config := range c.configs {
 		f.objects = append(f.objects, config)
 	}
-	for _, secret := range(c.secrets) {
+	for _, secret := range c.secrets {
 		f.kubeobjects = append(f.kubeobjects, secret)
 	}
 
 	cntl, i, k8sI := f.newController()
 
-	for _, us := range(c.updatedSnapshots) {
+	for _, us := range c.updatedSnapshots {
 		f.expectUpdateSnapshotAction(us)
 	}
-	for _, ds := range(c.deleteSnapshots) {
+	for _, ds := range c.deleteSnapshots {
 		f.expectDeleteSnapshotAction(ds)
 	}
 
@@ -466,32 +465,32 @@ func SnapshotTestCase(c *Case, t *testing.T) {
 	f.startInformers(i, k8sI)
 
 	if c.queueOnly {
-		f.runQueueOnly(cntl, "default/" + c.handleKey, "snapshots")
+		f.runQueueOnly(cntl, "default/"+c.handleKey, "snapshots")
 	} else {
-		f.run(cntl, "default/" + c.handleKey, "snapshots")
+		f.run(cntl, "default/"+c.handleKey, "snapshots")
 	}
 }
 
 func RestoreTestCase(c *Case, t *testing.T) {
 	f := newFixture(t)
 
-	for _, r := range(c.restores) {
+	for _, r := range c.restores {
 		f.restoreLister = append(f.restoreLister, r)
 		f.objects = append(f.objects, r)
 	}
-	for _, config := range(c.configs) {
+	for _, config := range c.configs {
 		f.objects = append(f.objects, config)
 	}
-	for _, secret := range(c.secrets) {
+	for _, secret := range c.secrets {
 		f.kubeobjects = append(f.kubeobjects, secret)
 	}
 
 	cntl, i, k8sI := f.newController()
 
-	for _, ur := range(c.updatedRestores) {
+	for _, ur := range c.updatedRestores {
 		f.expectUpdateRestoreAction(ur)
 	}
-	for _, dr := range(c.deleteRestores) {
+	for _, dr := range c.deleteRestores {
 		f.expectDeleteRestoreAction(dr)
 	}
 
@@ -499,9 +498,9 @@ func RestoreTestCase(c *Case, t *testing.T) {
 	f.startInformers(i, k8sI)
 
 	if c.queueOnly {
-		f.runQueueOnly(cntl, "default/" + c.handleKey, "restores")
+		f.runQueueOnly(cntl, "default/"+c.handleKey, "restores")
 	} else {
-		f.run(cntl, "default/" + c.handleKey, "restores")
+		f.run(cntl, "default/"+c.handleKey, "restores")
 	}
 }
 

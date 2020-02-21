@@ -1,25 +1,25 @@
 package cluster
 
 import (
-	"fmt"
-	"strconv"
-	"sort"
-	"time"
-	"os"
-	"path/filepath"
 	"archive/tar"
 	"compress/gzip"
 	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	//corev1 "k8s.io/api/core/v1"
+	"github.com/cenkalti/backoff"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog"
-	"github.com/cenkalti/backoff"
 
 	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
@@ -88,6 +88,7 @@ func stopWatch(eventsWatch map[schema.GroupVersionResource]watch.Interface) {
 var apiPermErrors = []string{
 	"Unauthorized",
 }
+
 func apiPermError(error string) bool {
 	for _, e := range apiPermErrors {
 		if strings.Contains(error, e) {
@@ -116,10 +117,10 @@ func Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 
 		// This is the first time that k8s api of  target cluster accessed
 		if apiPermError(err.Error()) {
-			return backoff.Permanent(fmt.Errorf("Get server prefered resources failed : %s", err.Error()))
+			return backoff.Permanent(fmt.Errorf("Get server preferred resources failed : %s", err.Error()))
 		}
 
-		return fmt.Errorf("Get server prefered resources failed : %s", err.Error())
+		return fmt.Errorf("Get server preferred resources failed : %s", err.Error())
 	}
 	resources := discovery.FilteredBy(discovery.ResourcePredicateFunc(matchVerbs), spr)
 
@@ -235,7 +236,7 @@ func Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 			if targetIndex >= 0 {
 				if isNewerValidResourceVersion(item.GetResourceVersion(), snapshotList[targetIndex].GetResourceVersion()) {
 					switch e.Type {
-					case watch.Added,watch.Modified:
+					case watch.Added, watch.Modified:
 						snapshotList[targetIndex] = *item
 						message = "applied"
 					case watch.Deleted:
@@ -247,7 +248,7 @@ func Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 				}
 			} else {
 				switch e.Type {
-				case watch.Added,watch.Modified:
+				case watch.Added, watch.Modified:
 					snapshotList = append(snapshotList, *item)
 					message = "added"
 				case watch.Deleted:
@@ -292,7 +293,7 @@ func Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 			return fmt.Errorf("Marshalling json failed : %s", err.Error())
 		}
 		hdr := &tar.Header{
-			Name:     filepath.Join(snapshot.ObjectMeta.Name, itempath + ".json"),
+			Name:     filepath.Join(snapshot.ObjectMeta.Name, itempath+".json"),
 			Size:     int64(len(content)),
 			Typeflag: tar.TypeReg,
 			Mode:     0755,
@@ -362,6 +363,7 @@ var obstPermErrors = []string{
 	"InvalidAccessKeyId",
 	"NoSuchBucket",
 }
+
 func objectstorePermError(error string) bool {
 	for _, e := range obstPermErrors {
 		if strings.Contains(error, e) {
@@ -382,8 +384,8 @@ func UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket *objectstore.Bucket) e
 	if err != nil {
 		return backoff.Permanent(fmt.Errorf("Re-opening tgz file failed : %s", err.Error()))
 	}
-	blog.Infof("Uploading file %s", snapshot.ObjectMeta.Name + ".tgz")
-	err = bucket.Upload(snapshotFile, snapshot.ObjectMeta.Name + ".tgz")
+	blog.Infof("Uploading file %s", snapshot.ObjectMeta.Name+".tgz")
+	err = bucket.Upload(snapshotFile, snapshot.ObjectMeta.Name+".tgz")
 	if err != nil {
 		if objectstorePermError(err.Error()) {
 			return backoff.Permanent(fmt.Errorf("Uploading tgz file failed : %s", err.Error()))

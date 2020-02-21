@@ -1,36 +1,36 @@
 package cluster
 
 import (
-	"strings"
-	"os"
 	"io/ioutil"
+	"os"
 	"path/filepath"
+	"strings"
 
+	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog"
-	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 )
 
 func apiPathMatched(path, apiPath string) bool {
 	sp := strings.Split(apiPath, ",")
 	if len(sp) == 1 &&
-	   strings.HasPrefix(path, sp[0]) {
+		strings.HasPrefix(path, sp[0]) {
 		return true
 	}
 	if len(sp) == 2 &&
-	   strings.HasPrefix(path, sp[0]) &&
-	   strings.Contains(path, sp[1]) {
+		strings.HasPrefix(path, sp[0]) &&
+		strings.Contains(path, sp[1]) {
 		return true
 	}
 	return false
 }
 
 type preference struct {
-	pref *cbv1alpha1.RestorePreference
-	includedClusterRoles []string
+	pref                        *cbv1alpha1.RestorePreference
+	includedClusterRoles        []string
 	includedClusterRoleBindings []string
-	serviceList []string
-	dirs []os.FileInfo
+	serviceList                 []string
+	dirs                        []os.FileInfo
 }
 
 func newPreference(pref *cbv1alpha1.RestorePreference) *preference {
@@ -60,21 +60,21 @@ func (p *preference) preferedToRestore(path string) string {
 		return "CRD"
 	}
 	// check exclude API pathes
-	for _, p := range p.pref.Spec.ExcludeApiPathes {
+	for _, p := range p.pref.Spec.ExcludeAPIPathes {
 		if apiPathMatched(path, p) {
 			return "Exclude"
 		}
 	}
 	// check exclude namespaces
 	for _, n := range p.pref.Spec.ExcludeNamespaces {
-		if strings.Contains(path, "namespaces/" + n) {
+		if strings.Contains(path, "namespaces/"+n) {
 			return "Exclude"
 		}
 	}
 	// check storage classes
 	if strings.Contains(path, "/storageclasses/") {
 		for _, s := range p.pref.Spec.RestoreNfsStorageClasses {
-			if strings.Contains(path, "storageclasses/" + s) {
+			if strings.Contains(path, "storageclasses/"+s) {
 				return "Restore"
 			}
 		}
@@ -88,7 +88,7 @@ func (p *preference) preferedToRestore(path string) string {
 		return "PVC"
 	}
 	// check Apps API pathes
-	for _, p := range p.pref.Spec.RestoreAppApiPathes {
+	for _, p := range p.pref.Spec.RestoreAppAPIPathes {
 		if apiPathMatched(path, p) {
 			return "App"
 		}

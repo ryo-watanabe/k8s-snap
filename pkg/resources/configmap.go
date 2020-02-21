@@ -1,8 +1,8 @@
 package resources
 
 import (
-  metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-  corev1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func NewConfigMap(name, namespace, fileContent, filename string, labels map[string]string) *corev1.ConfigMap {
@@ -14,10 +14,10 @@ func NewConfigMap(name, namespace, fileContent, filename string, labels map[stri
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Labels: labels,
+			Labels:    labels,
 		},
-		Data: map[string]string {
-			filename : fileContent,
+		Data: map[string]string{
+			filename: fileContent,
 		},
 	}
 }

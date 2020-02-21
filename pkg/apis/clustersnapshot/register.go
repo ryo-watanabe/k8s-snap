@@ -17,6 +17,6 @@ limitations under the License.
 package clustersnapshot
 
 const (
+	// GroupName for api group
 	GroupName = "clustersnapshot.rywt.io"
 )
-

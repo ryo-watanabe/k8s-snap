@@ -7,7 +7,7 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Foo is a specification for a Foo resource
+// Snapshot is a specification for a Snapshot resource
 type Snapshot struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -16,33 +16,33 @@ type Snapshot struct {
 	Status SnapshotStatus `json:"status"`
 }
 
-// FooSpec is the spec for a Foo resource
+// SnapshotSpec is the spec for a Snapshot resource
 type SnapshotSpec struct {
-	ClusterName string `json:"clusterName"`
-	Kubeconfig string `json:"kubeconfig"`
-	ObjectstoreConfig string `json:"objectstoreConfig"`
-	AvailableUntil metav1.Time `json:"availableUntil"`
-	TTL metav1.Duration `json:"ttl"`
+	ClusterName       string          `json:"clusterName"`
+	Kubeconfig        string          `json:"kubeconfig"`
+	ObjectstoreConfig string          `json:"objectstoreConfig"`
+	AvailableUntil    metav1.Time     `json:"availableUntil"`
+	TTL               metav1.Duration `json:"ttl"`
 }
 
-// FooStatus is the status for a Foo resource
+// SnapshotStatus is the status for a Snapshot resource
 type SnapshotStatus struct {
-	Phase string `json:"phase"`
-	Reason string `json:"reason"`
-	SnapshotResourceVersion string `json:"snapshotResourceVersion"`
-	SnapshotTimestamp metav1.Time `json:"snapshotTimestamp"`
-	AvailableUntil metav1.Time `json:"availableUntil"`
-	TTL metav1.Duration `json:"ttl"`
-	Contents []string `json:"contents"`
-	StoredFileSize int64 `json:"storedFileSize"`
-	StoredTimestamp metav1.Time `json:"storedTimestamp"`
-	NumberOfContents int32 `json:"numberOfContents"`
+	Phase                   string          `json:"phase"`
+	Reason                  string          `json:"reason"`
+	SnapshotResourceVersion string          `json:"snapshotResourceVersion"`
+	SnapshotTimestamp       metav1.Time     `json:"snapshotTimestamp"`
+	AvailableUntil          metav1.Time     `json:"availableUntil"`
+	TTL                     metav1.Duration `json:"ttl"`
+	Contents                []string        `json:"contents"`
+	StoredFileSize          int64           `json:"storedFileSize"`
+	StoredTimestamp         metav1.Time     `json:"storedTimestamp"`
+	NumberOfContents        int32           `json:"numberOfContents"`
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Foo is a specification for a Foo resource
+// Restore is a specification for a Restore resource
 type Restore struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -51,81 +51,81 @@ type Restore struct {
 	Status RestoreStatus `json:"status"`
 }
 
-// FooSpec is the spec for a Foo resource
+// RestoreSpec is the spec for a Restore resource
 type RestoreSpec struct {
-	ClusterName string `json:"clusterName"`
-	SnapshotName string `json:"snapshotName"`
-	Kubeconfig string `json:"kubeconfig"`
-	RestorePreferenceName string `json:"restorePreferenceName"`
-	AvailableUntil metav1.Time `json:"availableUntil"`
-	TTL metav1.Duration `json:"ttl"`
+	ClusterName           string          `json:"clusterName"`
+	SnapshotName          string          `json:"snapshotName"`
+	Kubeconfig            string          `json:"kubeconfig"`
+	RestorePreferenceName string          `json:"restorePreferenceName"`
+	AvailableUntil        metav1.Time     `json:"availableUntil"`
+	TTL                   metav1.Duration `json:"ttl"`
 }
 
-// FooStatus is the status for a Foo resource
+// RestoreStatus is the status for a Restore resource
 type RestoreStatus struct {
-	Phase string `json:"phase"`
-	Reason string `json:"reason"`
-	RestoreResourceVersion string `json:"restoreResourceVersion"`
-	RestoreTimestamp metav1.Time `json:"restoreTimestamp"`
-	AvailableUntil metav1.Time `json:"availableUntil"`
-	TTL metav1.Duration `json:"ttl"`
-	NumSnapshotContents int32 `json:"numSnapshotContents"`
-	NumPreferenceExcluded int32 `json:"numPreferenceExcluded"`
-	Excluded []string `json:"excluded"`
-	NumExcluded int32 `json:"numExcluded"`
-	Created []string `json:"created"`
-	NumCreated int32 `json:"numCreated"`
-	Updated []string `json:"updated"`
-	NumUpdated int32 `json:"numUpdated"`
-	AlreadyExisted []string `json:"alreadyExisted"`
-	NumAlreadyExisted int32 `json:"numAlreadyExisted"`
-	Failed []string `json:"failed"`
-	NumFailed int32 `json:"numFailed"`
+	Phase                  string          `json:"phase"`
+	Reason                 string          `json:"reason"`
+	RestoreResourceVersion string          `json:"restoreResourceVersion"`
+	RestoreTimestamp       metav1.Time     `json:"restoreTimestamp"`
+	AvailableUntil         metav1.Time     `json:"availableUntil"`
+	TTL                    metav1.Duration `json:"ttl"`
+	NumSnapshotContents    int32           `json:"numSnapshotContents"`
+	NumPreferenceExcluded  int32           `json:"numPreferenceExcluded"`
+	Excluded               []string        `json:"excluded"`
+	NumExcluded            int32           `json:"numExcluded"`
+	Created                []string        `json:"created"`
+	NumCreated             int32           `json:"numCreated"`
+	Updated                []string        `json:"updated"`
+	NumUpdated             int32           `json:"numUpdated"`
+	AlreadyExisted         []string        `json:"alreadyExisted"`
+	NumAlreadyExisted      int32           `json:"numAlreadyExisted"`
+	Failed                 []string        `json:"failed"`
+	NumFailed              int32           `json:"numFailed"`
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Foo is a specification for a Foo resource
+// RestorePreference is a specification for a RestorePreference resource
 type RestorePreference struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   RestorePreferenceSpec   `json:"spec"`
+	Spec RestorePreferenceSpec `json:"spec"`
 }
 
-// FooSpec is the spec for a Foo resource
+// RestorePreferenceSpec is the spec for a RestorePreference resource
 type RestorePreferenceSpec struct {
-	ExcludeNamespaces []string `json:"excludeNamespaces"`
-	ExcludeCRDs []string `json:"excludeCRDs"`
-	ExcludeApiPathes []string `json:"excludeApiPathes"`
-	RestoreAppApiPathes []string `json:"restoreAppApiPathes"`
+	ExcludeNamespaces        []string `json:"excludeNamespaces"`
+	ExcludeCRDs              []string `json:"excludeCRDs"`
+	ExcludeAPIPathes         []string `json:"excludeApiPathes"`
+	RestoreAppAPIPathes      []string `json:"restoreAppApiPathes"`
 	RestoreNfsStorageClasses []string `json:"restoreNfsStorageClasses"`
-	RestoreOptions []string `json:"restoreOptions"`
+	RestoreOptions           []string `json:"restoreOptions"`
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Foo is a specification for a Foo resource
+// ObjectstoreConfig is a specification for a ObjectstoreConfig resource
 type ObjectstoreConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ObjectstoreConfigSpec   `json:"spec"`
+	Spec ObjectstoreConfigSpec `json:"spec"`
 }
 
-// FooSpec is the spec for a Foo resource
+// ObjectstoreConfigSpec is the spec for a ObjectstoreConfig resource
 type ObjectstoreConfigSpec struct {
-	Region string `json:"region"`
-	Endpoint string `json:"endpoint"`
+	Region                string `json:"region"`
+	Endpoint              string `json:"endpoint"`
 	CloudCredentialSecret string `json:"cloudCredentialSecret"`
-	Bucket string `json:"bucket"`
+	Bucket                string `json:"bucket"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// FooList is a list of Foo resources
+// SnapshotList is a list of Snapshot resources
 type SnapshotList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
@@ -135,7 +135,7 @@ type SnapshotList struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// FooList is a list of Foo resources
+// RestoreList is a list of Restore resources
 type RestoreList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
@@ -145,7 +145,7 @@ type RestoreList struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// FooList is a list of Foo resources
+// RestorePreferenceList is a list of RestorePreference resources
 type RestorePreferenceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
@@ -155,7 +155,7 @@ type RestorePreferenceList struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// FooList is a list of Foo resources
+// ObjectstoreConfigList is a list of ObjectstoreConfig resources
 type ObjectstoreConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

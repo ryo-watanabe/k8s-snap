@@ -1,13 +1,13 @@
 package cluster
 
 import (
-	"os"
-	"io"
-	"io/ioutil"
 	"archive/tar"
 	"compress/gzip"
-	"strings"
+	"io"
+	"io/ioutil"
+	"os"
 	"path/filepath"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -36,7 +36,7 @@ func loadItem(item *unstructured.Unstructured, filepath string) error {
 func resourceFromSelfLink(selflink string) string {
 	s := strings.Split(selflink, "/")
 	if len(s) >= 2 {
-		return s[len(s) - 2]
+		return s[len(s)-2]
 	}
 	return ""
 }
@@ -58,7 +58,7 @@ func createItem(item *unstructured.Unstructured, dyn dynamic.Interface) (*unstru
 func excludeWithMsg(restore *cbv1alpha1.Restore, rlog *utils.NamedLog, selflink, msg string) {
 	rlog.Infof("     [Excluded] %s", msg)
 	restore.Status.NumExcluded += 1
-	restore.Status.Excluded = append(restore.Status.Excluded, selflink + ",(" + msg + ")")
+	restore.Status.Excluded = append(restore.Status.Excluded, selflink+",("+msg+")")
 }
 
 func alreadyExist(restore *cbv1alpha1.Restore, rlog *utils.NamedLog, selflink string) {
@@ -77,9 +77,9 @@ func failedWithMsg(restore *cbv1alpha1.Restore, rlog *utils.NamedLog, selflink, 
 	rlog.Warningf("     [Failed] %s", msg)
 	restore.Status.NumFailed += 1
 	if len(msg) > 300 {
-		restore.Status.Failed = append(restore.Status.Failed, selflink + "," + msg[0:300] + ".....")
+		restore.Status.Failed = append(restore.Status.Failed, selflink+","+msg[0:300]+".....")
 	} else {
-		restore.Status.Failed = append(restore.Status.Failed, selflink + "," + msg)
+		restore.Status.Failed = append(restore.Status.Failed, selflink+","+msg)
 	}
 }
 
@@ -134,7 +134,7 @@ func restoreDir(dir, restorePref string, dyn dynamic.Interface, p *preference,
 			klog.Warningf("     Warning : Excluded : PVs/PVCs must not be included here")
 			continue
 		case "Endpoints":
-			if isInList(item.GetNamespace() + "/" + item.GetName(), p.serviceList) {
+			if isInList(item.GetNamespace()+"/"+item.GetName(), p.serviceList) {
 				excludeWithMsg(restore, rlog, item.GetSelfLink(), "service-exists")
 				continue
 			}
@@ -193,10 +193,10 @@ func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bu
 	restore.Status.Failed = nil
 
 	// Download
-	rlog.Infof("Downloading file %s", restore.Spec.SnapshotName + ".tgz")
+	rlog.Infof("Downloading file %s", restore.Spec.SnapshotName+".tgz")
 	snapshotFile, err := os.Create("/tmp/" + restore.Spec.SnapshotName + ".tgz")
 	defer snapshotFile.Close()
-	err = bucket.Download(snapshotFile, restore.Spec.SnapshotName + ".tgz")
+	err = bucket.Download(snapshotFile, restore.Spec.SnapshotName+".tgz")
 	if err != nil {
 		return err
 	}

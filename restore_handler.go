@@ -31,7 +31,7 @@ func (c *Controller) runRestoreQueuer() {
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the syncHandler.
 func (c *Controller) processNextRestoreItem(queueonly bool) bool {
-	// Proccess restore queue
+	// Process restore queue
 	obj, shutdown := c.restoreQueue.Get()
 	if shutdown {
 		return false
@@ -61,7 +61,6 @@ func (c *Controller) processNextRestoreItem(queueonly bool) bool {
 	return true
 }
 
-
 // snapshotSyncHandler compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Snapshot resource
 // with the current status of the resource.
@@ -84,9 +83,8 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 		if errors.IsNotFound(err) {
 			// if deleted ok, exit sync handler here.
 			return nil
-		} else {
-			return err
 		}
+		return err
 	}
 
 	if !queueonly && restore.Status.Phase == "InQueue" {
@@ -166,14 +164,16 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 		}
 	}
 
+	nowTime := metav1.NewTime(time.Now())
+
 	if restore.Status.Phase == "" {
 		// Chack AvailableUntil
 		if restore.Spec.AvailableUntil.IsZero() {
 			// Check TTL string
 			if restore.Spec.TTL.Duration == 0 {
-				restore.Spec.TTL.Duration = 24*7*time.Hour
+				restore.Spec.TTL.Duration = 24 * 7 * time.Hour
 			}
-		} else if restore.Spec.AvailableUntil.Before(&metav1.Time{time.Now()}) {
+		} else if restore.Spec.AvailableUntil.Before(&nowTime) {
 			restore, err = c.updateRestoreStatus(restore, "Failed", "AvailableUntil is set as past.")
 			if err != nil {
 				return err
@@ -214,7 +214,7 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 	}
 
 	// delete expired
-	if !restore.Status.AvailableUntil.IsZero() && restore.Status.AvailableUntil.Before(&metav1.Time{time.Now()}) {
+	if !restore.Status.AvailableUntil.IsZero() && restore.Status.AvailableUntil.Before(&nowTime) {
 		err := c.cbclientset.ClustersnapshotV1alpha1().Restores(c.namespace).Delete(name, &metav1.DeleteOptions{})
 		if err != nil {
 			restore, err = c.updateRestoreStatus(restore, "Failed", err.Error())

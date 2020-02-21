@@ -234,13 +234,13 @@ func (in *RestorePreferenceSpec) DeepCopyInto(out *RestorePreferenceSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.ExcludeApiPathes != nil {
-		in, out := &in.ExcludeApiPathes, &out.ExcludeApiPathes
+	if in.ExcludeAPIPathes != nil {
+		in, out := &in.ExcludeAPIPathes, &out.ExcludeAPIPathes
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.RestoreAppApiPathes != nil {
-		in, out := &in.RestoreAppApiPathes, &out.RestoreAppApiPathes
+	if in.RestoreAppAPIPathes != nil {
+		in, out := &in.RestoreAppAPIPathes, &out.RestoreAppAPIPathes
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}

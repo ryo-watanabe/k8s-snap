@@ -3,38 +3,44 @@ package cluster
 import (
 	"fmt"
 
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/tools/clientcmd"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-        corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 
 	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
 )
 
+// Cluster interfaces for taking and restoring snapshot of k8s clusters
 type Cluster interface {
 	Snapshot(snapshot *cbv1alpha1.Snapshot) error
 	UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket *objectstore.Bucket) error
 	Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket *objectstore.Bucket) error
 }
 
-type ClusterCmd struct {
+// Cmd for execute cluster commands
+type Cmd struct {
 }
 
-func NewClusterCmd() *ClusterCmd {
-	return &ClusterCmd{}
+// NewClusterCmd returns new Cmd
+func NewClusterCmd() *Cmd {
+	return &Cmd{}
 }
 
-func (c *ClusterCmd)Snapshot(snapshot *cbv1alpha1.Snapshot) error {
+// Snapshot take a snapshot
+func (c *Cmd) Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 	return Snapshot(snapshot)
 }
 
-func (c *ClusterCmd)UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket *objectstore.Bucket) error {
+// UploadSnapshot uploads the snapshot data to the object store bucket
+func (c *Cmd) UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket *objectstore.Bucket) error {
 	return UploadSnapshot(snapshot, bucket)
 }
 
-func (c *ClusterCmd)Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket *objectstore.Bucket) error {
+// Restore restores snapshot data on a cluster
+func (c *Cmd) Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket *objectstore.Bucket) error {
 	return Restore(restore, pref, bucket)
 }
 
@@ -42,7 +48,7 @@ func (c *ClusterCmd)Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.Restor
 func buildKubeClient(kubeconfig string) (*kubernetes.Clientset, error) {
 	// Check if Kubeconfig available.
 	if kubeconfig == "" {
-		return nil, fmt.Errorf("Cannot create Kubeconfig : Kubeconfig not given.")
+		return nil, fmt.Errorf("Cannot create Kubeconfig : Kubeconfig not given")
 	}
 
 	// Setup Rancher Kubeconfig to access customer cluster.
@@ -61,7 +67,7 @@ func buildKubeClient(kubeconfig string) (*kubernetes.Clientset, error) {
 func buildDynamicClient(kubeconfig string) (dynamic.Interface, error) {
 	// Check if Kubeconfig available.
 	if kubeconfig == "" {
-		return nil, fmt.Errorf("Cannot create Kubeconfig : Kubeconfig not given.")
+		return nil, fmt.Errorf("Cannot create Kubeconfig : Kubeconfig not given")
 	}
 
 	// Setup Rancher Kubeconfig to access customer cluster.
@@ -76,6 +82,7 @@ func buildDynamicClient(kubeconfig string) (dynamic.Interface, error) {
 	return dynamicClient, err
 }
 
+// ConfigMapMarker creates and deletes a config map to get a marker for Resource Version
 func ConfigMapMarker(kubeClient *kubernetes.Clientset, name string) (*corev1.ConfigMap, error) {
 	configMap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{

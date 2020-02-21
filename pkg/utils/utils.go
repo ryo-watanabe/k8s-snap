@@ -1,8 +1,8 @@
 package utils
 
 import (
-	"time"
 	"math/rand"
+	"time"
 
 	"k8s.io/klog"
 )
@@ -27,7 +27,7 @@ func NewNamedLog(name string) *NamedLog {
 }
 
 func (b *NamedLog) Infof(format string, v ...interface{}) {
-	klog.Infof(b.Name + format, v...)
+	klog.Infof(b.Name+format, v...)
 }
 
 func (b *NamedLog) Info(string string) {
@@ -35,7 +35,7 @@ func (b *NamedLog) Info(string string) {
 }
 
 func (b *NamedLog) Warningf(format string, v ...interface{}) {
-	klog.Warningf(b.Name + format, v...)
+	klog.Warningf(b.Name+format, v...)
 }
 
 func (b *NamedLog) Warning(string string) {

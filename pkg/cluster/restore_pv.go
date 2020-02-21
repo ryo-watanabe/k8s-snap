@@ -2,10 +2,10 @@ package cluster
 
 import (
 	"fmt"
-	"time"
 	"io/ioutil"
-	"strings"
 	"path/filepath"
+	"strings"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -87,7 +87,7 @@ func restorePV(dir string, dyn dynamic.Interface, p *preference,
 		}
 		pv_found := false
 		for _, pvf := range pvfiles {
-			if strings.Contains(pvf.Name(), "|persistentvolumes|" + volumeName + ".json") {
+			if strings.Contains(pvf.Name(), "|persistentvolumes|"+volumeName+".json") {
 				err := loadItem(&pv_item, filepath.Join(dir, "PV", pvf.Name()))
 				if err != nil {
 					return err

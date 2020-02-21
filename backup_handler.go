@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cenkalti/backoff"
+	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
-	"github.com/cenkalti/backoff"
 
-	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 	//"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
 	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
 )
@@ -33,7 +33,7 @@ func (c *Controller) runSnapshotQueuer() {
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the syncHandler.
 func (c *Controller) processNextSnapshotItem(queueonly bool) bool {
-	// Proccess snapshot queue
+	// Process snapshot queue
 	obj, shutdown := c.snapshotQueue.Get()
 	if shutdown {
 		return false
@@ -88,17 +88,17 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 		if errors.IsNotFound(err) {
 			// When deleting a snapshot, exit sync handler here.
 			return nil
-		} else {
-			return err
 		}
+		return err
 	}
 
 	// controller stopped wwhile taking the snapshot
 	if snapshot.Status.Phase == "InProgress" {
 
 		// check timestamp just in case
-		retryend := metav1.NewTime(snapshot.ObjectMeta.CreationTimestamp.Add(time.Duration(c.maxretryelaspsedminutes + 1)*time.Minute))
-		if retryend.Before(&metav1.Time{time.Now()}) {
+		retryend := metav1.NewTime(snapshot.ObjectMeta.CreationTimestamp.Add(time.Duration(c.maxretryelaspsedminutes+1) * time.Minute))
+		nowTime := metav1.NewTime(time.Now())
+		if retryend.Before(&nowTime) {
 			snapshot, err = c.updateSnapshotStatus(snapshot, "Failed", "Controller stopped while taking the snapshot")
 			if err != nil {
 				return err
@@ -162,15 +162,17 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 		}
 	}
 
+	nowTime := metav1.NewTime(time.Now())
+
 	// initialize
 	if snapshot.Status.Phase == "" {
 		// Check AvailableUntil
 		if snapshot.Spec.AvailableUntil.IsZero() {
 			// Check TTL string
 			if snapshot.Spec.TTL.Duration == 0 {
-				snapshot.Spec.TTL.Duration = 24*30*time.Hour
+				snapshot.Spec.TTL.Duration = 24 * 30 * time.Hour
 			}
-		} else if snapshot.Spec.AvailableUntil.Before(&metav1.Time{time.Now()}) {
+		} else if snapshot.Spec.AvailableUntil.Before(&nowTime) {
 			snapshot, err = c.updateSnapshotStatus(snapshot, "Failed", "AvailableUntil is set as past.")
 			if err != nil {
 				return err
@@ -211,7 +213,7 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 	}
 
 	// delete expired
-	if !snapshot.Status.AvailableUntil.IsZero() && snapshot.Status.AvailableUntil.Before(&metav1.Time{time.Now()}) {
+	if !snapshot.Status.AvailableUntil.IsZero() && snapshot.Status.AvailableUntil.Before(&nowTime) {
 		err := c.cbclientset.ClustersnapshotV1alpha1().Snapshots(c.namespace).Delete(name, &metav1.DeleteOptions{})
 		if err != nil {
 			snapshot, err = c.updateSnapshotStatus(snapshot, "Failed", err.Error())

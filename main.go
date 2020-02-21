@@ -20,30 +20,31 @@ import (
 	"flag"
 	"time"
 
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
+
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	clientset "github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned"
 	informers "github.com/ryo-watanabe/k8s-snap/pkg/client/informers/externalversions"
-	"github.com/ryo-watanabe/k8s-snap/pkg/signals"
 	"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
+	"github.com/ryo-watanabe/k8s-snap/pkg/signals"
 )
 
 var (
-	masterURL  string
-	kubeconfig string
-	namespace string
-	snapshotthreads int
-	restorethreads int
-	housekeepstore bool
-	restoresnapshots bool
-	validatefileinfo bool
-	insecure bool
-	createbucket bool
+	masterURL               string
+	kubeconfig              string
+	namespace               string
+	snapshotthreads         int
+	restorethreads          int
+	housekeepstore          bool
+	restoresnapshots        bool
+	validatefileinfo        bool
+	insecure                bool
+	createbucket            bool
 	maxretryelaspsedminutes int
 )
 

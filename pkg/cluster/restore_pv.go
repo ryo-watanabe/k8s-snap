@@ -19,17 +19,17 @@ import (
 // Check PV status->phase
 func isPVBound(pvName string, dyn dynamic.Interface, rlog *utils.NamedLog) (bool, error) {
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}
-	pv_item, err := dyn.Resource(gvr).Get(pvName, metav1.GetOptions{})
+	pvItem, err := dyn.Resource(gvr).Get(pvName, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
-	pv_status := getUnstructuredMap(pv_item.Object, "status")
-	if pv_status == nil {
+	pvStatus := getUnstructuredMap(pvItem.Object, "status")
+	if pvStatus == nil {
 		return false, err
 	}
-	pv_phase := getUnstructuredString(pv_status, "phase")
-	rlog.Infof("     Checking PV:%s status:%s", pvName, pv_phase)
-	if pv_phase == "Bound" {
+	pvPhase := getUnstructuredString(pvStatus, "phase")
+	rlog.Infof("     Checking PV:%s status:%s", pvName, pvPhase)
+	if pvPhase == "Bound" {
 		return true, nil
 	}
 	return false, nil
@@ -46,37 +46,37 @@ func restorePV(dir string, dyn dynamic.Interface, p *preference,
 
 	for _, f := range pvcfiles {
 
-		var pvc_item unstructured.Unstructured
-		var pv_item unstructured.Unstructured
+		var pvcItem unstructured.Unstructured
+		var pvItem unstructured.Unstructured
 
 		// Load PVC item
-		err := loadItem(&pvc_item, filepath.Join(dir, "PVC", f.Name()))
+		err := loadItem(&pvcItem, filepath.Join(dir, "PVC", f.Name()))
 		if err != nil {
 			return err
 		}
 
-		rlog.Infof("---- %s", pvc_item.GetSelfLink())
+		rlog.Infof("---- %s", pvcItem.GetSelfLink())
 
 		// Check storageClassName
-		pvc_spec := getUnstructuredMap(pvc_item.Object, "spec")
-		if pvc_spec == nil {
-			excludeWithMsg(restore, rlog, pvc_item.GetSelfLink(), "no-pvc-spec")
+		pvcSpec := getUnstructuredMap(pvcItem.Object, "spec")
+		if pvcSpec == nil {
+			excludeWithMsg(restore, rlog, pvcItem.GetSelfLink(), "no-pvc-spec")
 			continue
 		}
-		storageClassName := getUnstructuredString(pvc_spec, "storageClassName")
+		storageClassName := getUnstructuredString(pvcSpec, "storageClassName")
 		if storageClassName == "" || !p.isIncludedStorageClass(storageClassName) {
 			// Check Annotations
-			annotaionStorageClassName := pvc_item.GetAnnotations()["volume.beta.kubernetes.io/storage-class"]
+			annotaionStorageClassName := pvcItem.GetAnnotations()["volume.beta.kubernetes.io/storage-class"]
 			if annotaionStorageClassName == "" || !p.isIncludedStorageClass(annotaionStorageClassName) {
-				excludeWithMsg(restore, rlog, pvc_item.GetSelfLink(), "no-storageclass")
+				excludeWithMsg(restore, rlog, pvcItem.GetSelfLink(), "no-storageclass")
 				continue
 			}
 		}
 
 		// Check bounded and PV name
-		volumeName := getUnstructuredString(pvc_spec, "volumeName")
+		volumeName := getUnstructuredString(pvcSpec, "volumeName")
 		if volumeName == "" {
-			excludeWithMsg(restore, rlog, pvc_item.GetSelfLink(), "not-bounded")
+			excludeWithMsg(restore, rlog, pvcItem.GetSelfLink(), "not-bounded")
 			continue
 		}
 
@@ -85,64 +85,64 @@ func restorePV(dir string, dyn dynamic.Interface, p *preference,
 		if err != nil {
 			return err
 		}
-		pv_found := false
+		pvFound := false
 		for _, pvf := range pvfiles {
 			if strings.Contains(pvf.Name(), "|persistentvolumes|"+volumeName+".json") {
-				err := loadItem(&pv_item, filepath.Join(dir, "PV", pvf.Name()))
+				err := loadItem(&pvItem, filepath.Join(dir, "PV", pvf.Name()))
 				if err != nil {
 					return err
 				}
-				pv_found = true
+				pvFound = true
 				break
 			}
 		}
-		if !pv_found {
-			excludeWithMsg(restore, rlog, pvc_item.GetSelfLink(), "pv-not-found")
+		if !pvFound {
+			excludeWithMsg(restore, rlog, pvcItem.GetSelfLink(), "pv-not-found")
 			continue
 		}
 
 		// Restore PV first
-		rlog.Infof("     Restoring PV %s", pv_item.GetName())
-		pv_spec := getUnstructuredMap(pv_item.Object, "spec")
-		if pv_spec == nil {
-			excludeWithMsg(restore, rlog, pvc_item.GetSelfLink(), "no-pv-spec")
+		rlog.Infof("     Restoring PV %s", pvItem.GetName())
+		pvSpec := getUnstructuredMap(pvItem.Object, "spec")
+		if pvSpec == nil {
+			excludeWithMsg(restore, rlog, pvcItem.GetSelfLink(), "no-pv-spec")
 			continue
 		}
-		pv_spec["claimRef"] = nil
-		pv_item.Object["status"] = nil
-		pv_item.SetResourceVersion("")
-		pv_item.SetUID("")
-		_, err = createItem(&pv_item, dyn)
+		pvSpec["claimRef"] = nil
+		pvItem.Object["status"] = nil
+		pvItem.SetResourceVersion("")
+		pvItem.SetUID("")
+		_, err = createItem(&pvItem, dyn)
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				alreadyExist(restore, rlog, pv_item.GetSelfLink())
+				alreadyExist(restore, rlog, pvItem.GetSelfLink())
 			} else {
-				failedWithMsg(restore, rlog, pv_item.GetSelfLink(), err.Error())
+				failedWithMsg(restore, rlog, pvItem.GetSelfLink(), err.Error())
 			}
 			continue
 		} else {
-			created(restore, rlog, pv_item.GetSelfLink())
+			created(restore, rlog, pvItem.GetSelfLink())
 		}
 
 		// Then restore PVC
-		rlog.Infof("     Restoring PVC %s", pvc_item.GetName())
-		pvc_spec["volumeName"] = nil
-		pvc_item.Object["status"] = nil
-		pvc_item.SetResourceVersion("")
-		pvc_item.SetUID("")
-		annotations := pvc_item.GetAnnotations()
+		rlog.Infof("     Restoring PVC %s", pvcItem.GetName())
+		pvcSpec["volumeName"] = nil
+		pvcItem.Object["status"] = nil
+		pvcItem.SetResourceVersion("")
+		pvcItem.SetUID("")
+		annotations := pvcItem.GetAnnotations()
 		delete(annotations, "pv.kubernetes.io/bind-completed")
-		pvc_item.SetAnnotations(annotations)
-		_, err = createItem(&pvc_item, dyn)
+		pvcItem.SetAnnotations(annotations)
+		_, err = createItem(&pvcItem, dyn)
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				alreadyExist(restore, rlog, pvc_item.GetSelfLink())
+				alreadyExist(restore, rlog, pvcItem.GetSelfLink())
 			} else {
-				failedWithMsg(restore, rlog, pvc_item.GetSelfLink(), err.Error())
+				failedWithMsg(restore, rlog, pvcItem.GetSelfLink(), err.Error())
 			}
 			continue
 		} else {
-			created(restore, rlog, pvc_item.GetSelfLink())
+			created(restore, rlog, pvcItem.GetSelfLink())
 		}
 
 		// Wait for bound
@@ -150,14 +150,14 @@ func restorePV(dir string, dyn dynamic.Interface, p *preference,
 		timeout := 10
 		for {
 			if count >= timeout {
-				return fmt.Errorf("Timeout : waiting for PV/PVC bound %s", pv_item.GetName())
+				return fmt.Errorf("Timeout : waiting for PV/PVC bound %s", pvItem.GetName())
 			}
-			bound, err := isPVBound(pv_item.GetName(), dyn, rlog)
+			bound, err := isPVBound(pvItem.GetName(), dyn, rlog)
 			if err != nil {
 				return err
 			}
 			if bound {
-				rlog.Infof("     PV:%s - PVC:%s bounded successfully", pv_item.GetName(), pvc_item.GetName())
+				rlog.Infof("     PV:%s - PVC:%s bounded successfully", pvItem.GetName(), pvcItem.GetName())
 				break
 			}
 			time.Sleep(5 * time.Second)

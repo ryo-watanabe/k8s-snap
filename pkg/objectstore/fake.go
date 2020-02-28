@@ -1,5 +1,6 @@
 package objectstore
 
+// FakeBucket for fake bucket interface
 type FakeBucket struct {
 	Name       string
 	AccessKey  string
@@ -9,6 +10,7 @@ type FakeBucket struct {
 	BucketName string
 }
 
+// NewFakeBucket returns new fake bucket
 func NewFakeBucket(name, accessKey, secretKey, endpoint, region, bucketName string) *FakeBucket {
 	return &FakeBucket{
 		Name:       name,

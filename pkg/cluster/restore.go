@@ -57,25 +57,25 @@ func createItem(item *unstructured.Unstructured, dyn dynamic.Interface) (*unstru
 
 func excludeWithMsg(restore *cbv1alpha1.Restore, rlog *utils.NamedLog, selflink, msg string) {
 	rlog.Infof("     [Excluded] %s", msg)
-	restore.Status.NumExcluded += 1
+	restore.Status.NumExcluded++
 	restore.Status.Excluded = append(restore.Status.Excluded, selflink+",("+msg+")")
 }
 
 func alreadyExist(restore *cbv1alpha1.Restore, rlog *utils.NamedLog, selflink string) {
 	rlog.Info("     [Already exists]")
-	restore.Status.NumAlreadyExisted += 1
+	restore.Status.NumAlreadyExisted++
 	restore.Status.AlreadyExisted = append(restore.Status.AlreadyExisted, selflink)
 }
 
 func created(restore *cbv1alpha1.Restore, rlog *utils.NamedLog, selflink string) {
 	rlog.Info("     [Created]")
-	restore.Status.NumCreated += 1
+	restore.Status.NumCreated++
 	restore.Status.Created = append(restore.Status.Created, selflink)
 }
 
 func failedWithMsg(restore *cbv1alpha1.Restore, rlog *utils.NamedLog, selflink, msg string) {
 	rlog.Warningf("     [Failed] %s", msg)
-	restore.Status.NumFailed += 1
+	restore.Status.NumFailed++
 	if len(msg) > 300 {
 		restore.Status.Failed = append(restore.Status.Failed, selflink+","+msg[0:300]+".....")
 	} else {
@@ -241,7 +241,7 @@ func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bu
 			if restorePref == "Exclude" {
 				rlog.Infof("-- [%s] %s", restorePref, path)
 				//p.cntUpExcluded()
-				restore.Status.NumPreferenceExcluded += 1
+				restore.Status.NumPreferenceExcluded++
 				continue
 			}
 

@@ -44,9 +44,8 @@ func makeResourcePath(snapshotName, group, version, resourceName, namespace, nam
 	}
 	if group == "" {
 		return filepath.Join(snapshotName, "api", version, nspath, namespace, resourceName, name)
-	} else {
-		return filepath.Join(snapshotName, "apis", group, version, nspath, namespace, resourceName, name)
 	}
+	return filepath.Join(snapshotName, "apis", group, version, nspath, namespace, resourceName, name)
 }
 
 func isOlderValidResourceVersion(rv, refrv string) bool {
@@ -308,7 +307,7 @@ func Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 
 		// Contents
 		snapshot.Status.Contents = append(snapshot.Status.Contents, itempath)
-		snapshot.Status.NumberOfContents += 1
+		snapshot.Status.NumberOfContents++
 	}
 
 	blog.Info("Making snapshot.json")
@@ -373,7 +372,7 @@ func objectstorePermError(error string) bool {
 	return false
 }
 
-// Upload snapshot tgz file to bucket
+// UploadSnapshot uploads a snapshot tgz file to the bucket
 func UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket *objectstore.Bucket) error {
 
 	// Snapshot log

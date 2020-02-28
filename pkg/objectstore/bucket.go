@@ -16,6 +16,7 @@ import (
 	"k8s.io/klog"
 )
 
+// Objectstore interfaces
 type Objectstore interface {
 	ChkBucket() (bool, error)
 	Upload(file *os.File, filename string) error
@@ -25,6 +26,7 @@ type Objectstore interface {
 	ListObjectInfo() ([]ObjectInfo, error)
 }
 
+// ObjectInfo retains snapshot object's info
 type ObjectInfo struct {
 	Name             string
 	Size             int64
@@ -32,6 +34,7 @@ type ObjectInfo struct {
 	BucketConfigName string
 }
 
+// Bucket for connection to a bucket in object store
 type Bucket struct {
 	Name       string
 	AccessKey  string
@@ -42,6 +45,7 @@ type Bucket struct {
 	insecure   bool
 }
 
+// NewBucket returns new Bucket
 func NewBucket(name, accessKey, secretKey, endpoint, region, bucketName string, insecure bool) *Bucket {
 	return &Bucket{
 		Name:       name,
@@ -77,6 +81,7 @@ func (b *Bucket) setSession() (*session.Session, error) {
 	return sess, nil
 }
 
+// ChkBucket checks the bucket exists
 func (b *Bucket) ChkBucket() (bool, error) {
 	// set session
 	sess, err := b.setSession()
@@ -102,6 +107,7 @@ func (b *Bucket) ChkBucket() (bool, error) {
 	return found, nil
 }
 
+// CreateBucket creates a bucket
 func (b *Bucket) CreateBucket() error {
 	// set session
 	sess, err := b.setSession()
@@ -114,6 +120,7 @@ func (b *Bucket) CreateBucket() error {
 	return err
 }
 
+// Upload a file to the bucket
 func (b *Bucket) Upload(file *os.File, filename string) error {
 	// set session
 	sess, err := b.setSession()
@@ -134,6 +141,7 @@ func (b *Bucket) Upload(file *os.File, filename string) error {
 	return nil
 }
 
+// Download a file from the bucket
 func (b *Bucket) Download(file *os.File, filename string) error {
 	// set session
 	sess, err := b.setSession()
@@ -154,6 +162,7 @@ func (b *Bucket) Download(file *os.File, filename string) error {
 	return nil
 }
 
+// Delete a file in the bucket
 func (b *Bucket) Delete(filename string) error {
 	// set session
 	sess, err := b.setSession()
@@ -177,6 +186,7 @@ func (b *Bucket) Delete(filename string) error {
 	return err
 }
 
+// GetObjectInfo gets info of a file in the bucket
 func (b *Bucket) GetObjectInfo(filename string) (*ObjectInfo, error) {
 	// set session
 	sess, err := b.setSession()
@@ -207,9 +217,10 @@ func (b *Bucket) GetObjectInfo(filename string) (*ObjectInfo, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("Object %s not found in bucket %s.", filename, b.BucketName)
+	return nil, fmt.Errorf("Object %s not found in bucket %s", filename, b.BucketName)
 }
 
+// ListObjectInfo lists object info
 func (b *Bucket) ListObjectInfo() ([]ObjectInfo, error) {
 	// set session
 	sess, err := b.setSession()

@@ -1,0 +1,2145 @@
+{
+	"info": {
+		"_postman_id": "554e292b-f999-4a51-bb26-632d9fe817a7",
+		"name": "Snapshot Controller Test",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "CRDs exists",
+			"item": [
+				{
+					"name": "CRD snapshots exists",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "8c95f9b8-fbf9-410d-9e9a-51e987172c54",
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/apis/apiextensions.k8s.io/v1beta1/customresourcedefinitions/snapshots.{{groupname}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"apis",
+								"apiextensions.k8s.io",
+								"v1beta1",
+								"customresourcedefinitions",
+								"snapshots.{{groupname}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "CRD restores exists",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "1f0b5547-f9c0-4f2e-85b2-6adaaf1ae972",
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/apis/apiextensions.k8s.io/v1beta1/customresourcedefinitions/restores.{{groupname}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"apis",
+								"apiextensions.k8s.io",
+								"v1beta1",
+								"customresourcedefinitions",
+								"restores.{{groupname}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "CRD objectstoreconfigs exists",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "19604002-9aaf-42ae-b478-762f694aad0a",
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/apis/apiextensions.k8s.io/v1beta1/customresourcedefinitions/objectstoreconfigs.{{groupname}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"apis",
+								"apiextensions.k8s.io",
+								"v1beta1",
+								"customresourcedefinitions",
+								"objectstoreconfigs.{{groupname}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "CRD restorepreferences exists",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "c1d69e86-4c76-4ad4-864f-5d39e53e2b49",
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/apis/apiextensions.k8s.io/v1beta1/customresourcedefinitions/restorepreferences.{{groupname}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"apis",
+								"apiextensions.k8s.io",
+								"v1beta1",
+								"customresourcedefinitions",
+								"restorepreferences.{{groupname}}"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "c729bcf8-1a7d-4be9-8c7e-afd90ee0a3bd",
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "2d8f8872-24a8-4d77-9e7c-b3cb28d9dd68",
+						"type": "text/javascript",
+						"exec": [
+							"pm.test(\"response is ok\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						]
+					}
+				}
+			],
+			"protocolProfileBehavior": {}
+		},
+		{
+			"name": "prepare Namespace",
+			"item": [
+				{
+					"name": "create Namespace",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "f3ac0983-376a-4bd1-9709-4a317d841f41",
+								"exec": [
+									"pm.test(\"response is ok\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"apiVersion\": \"v1\",\n    \"kind\": \"Namespace\",\n    \"metadata\": {\n        \"name\": \"{{namespace}}\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/namespaces",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"namespaces"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create cloud credential Secret",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "80309337-ede4-43f1-b055-85991a6f42dc",
+								"exec": [
+									"pm.test(\"response is ok\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"kind\": \"Secret\",\r\n    \"apiVersion\": \"v1\",\r\n    \"metadata\": {\r\n        \"name\": \"{{secret}}\",\r\n        \"namespace\": \"{{namespace}}\"\r\n    },\r\n    \"data\": {\r\n        \"accesskey\": \"{{accesskey_encoded}}\",\r\n        \"secretkey\": \"{{secretkey_encoded}}\"\r\n    },\r\n    \"type\": \"Opaque\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/namespaces/:namespace/secrets",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"namespaces",
+								":namespace",
+								"secrets"
+							],
+							"variable": [
+								{
+									"key": "namespace",
+									"value": "{{namespace}}",
+									"description": "object name and auth scope, such as for teams and projects"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create Objectstore Config",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "8ade3c76-0be1-44a5-b5a6-295380e4575f",
+								"exec": [
+									"pm.test(\"response is ok\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apiVersion\": \"{{groupname}}/v1alpha1\",\r\n    \"kind\": \"ObjectstoreConfig\",\r\n    \"metadata\": {\r\n        \"name\": \"{{objectstoreconfig}}\",\r\n        \"namespace\": \"{{namespace}}\"\r\n    },\r\n    \"spec\": {\r\n        \"bucket\": \"{{bucket}}\",\r\n        \"cloudCredentialSecret\": \"{{secret}}\",\r\n        \"endpoint\": \"{{mockdeploy}}.{{clusterip}}.nip.io\",\r\n        \"region\": \"{{region}}\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/apis/{{groupname}}/v1alpha1/namespaces/:namespace/objectstoreconfigs",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"apis",
+								"{{groupname}}",
+								"v1alpha1",
+								"namespaces",
+								":namespace",
+								"objectstoreconfigs"
+							],
+							"variable": [
+								{
+									"key": "namespace",
+									"value": "{{namespace}}",
+									"description": "object name and auth scope, such as for teams and projects"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create Cluster Role Binding",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "0b752b1f-f564-490d-9beb-4aac189a34b9",
+								"exec": [
+									"pm.test(\"response is ok\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"description": "Bearer Token authentication",
+								"key": "authorization",
+								"value": ""
+							},
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"kind\": \"ClusterRoleBinding\",\r\n    \"apiVersion\": \"rbac.authorization.k8s.io/v1\",\r\n    \"metadata\": {\r\n        \"name\": \"{{namespace}}\"\r\n    },\r\n    \"subjects\": [\r\n        {\r\n            \"kind\": \"ServiceAccount\",\r\n            \"name\": \"default\",\r\n            \"namespace\": \"{{namespace}}\"\r\n        }\r\n    ],\r\n    \"roleRef\": {\r\n        \"apiGroup\": \"rbac.authorization.k8s.io\",\r\n        \"kind\": \"ClusterRole\",\r\n        \"name\": \"cluster-admin\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/apis/rbac.authorization.k8s.io/v1/clusterrolebindings",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"apis",
+								"rbac.authorization.k8s.io",
+								"v1",
+								"clusterrolebindings"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create registry key Secret",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "80309337-ede4-43f1-b055-85991a6f42dc",
+								"exec": [
+									"pm.test(\"response is ok\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"kind\": \"Secret\",\r\n    \"apiVersion\": \"v1\",\r\n    \"metadata\": {\r\n        \"name\": \"myregistrykey\",\r\n        \"namespace\": \"{{namespace}}\"\r\n    },\r\n    \"data\": {\r\n    \t\".dockerconfigjson\": \"{{dockerconfigjson}}\"\r\n    },\r\n    \"type\": \"kubernetes.io/dockerconfigjson\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/namespaces/:namespace/secrets",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"namespaces",
+								":namespace",
+								"secrets"
+							],
+							"variable": [
+								{
+									"key": "namespace",
+									"value": "{{namespace}}",
+									"description": "object name and auth scope, such as for teams and projects"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "40099605-858c-4509-9808-5ed80b166d52",
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "36b1d9d9-d1d9-4851-bfc8-a3e453296d23",
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				}
+			],
+			"protocolProfileBehavior": {}
+		},
+		{
+			"name": "deploy Objectstore Mock",
+			"item": [
+				{
+					"name": "create mock tls Secret",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "80309337-ede4-43f1-b055-85991a6f42dc",
+								"exec": [
+									"pm.test(\"response is ok\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apiVersion\": \"v1\",\r\n    \"data\": {\r\n        \"private.key\": \"LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb2dJQkFBS0NBUUVBelQ1KzV3MGtoamFRbTdqeXdxLzFmWlNTVlNMWkUzYUY2SUJWeGp2dW1adzF5R0I2ClFiRnVzSHpaSHJhand3VkMzNEsvYUFiQmwzbXNPcnl5aDMwb3hlTUtEQnBCa0NJWXRKTWc1OFBFYWZwUmFFNTIKVEpIWWh3T1VOZEZEZzVtWGQvWG1xSEE4dHVMWkZEZmx1bExkWXEwcFhPZ1NJZFNXOCtHeEp3dzBNTDB5M1lBVgphUURoVUVtdXZDRlp3WFA4VHRtOVJ1VEdDeUQ2WVAvWk9FeS9KQVRCa051NDBmS1doai93YWRRZ0dFRmNwekh4CmVLRXVTKzJJYlpMbDY0bGJLSnVBR1B5SXRRbkpJOEhHYyswam9NQ0pibkRFNm5wU0ZWblQ5QnJFK3daeDhBcy8KamQzempwSlVTS2N2ZHJyWmtnUDB0MWNhN1dKaEx6RWNDcWF3YlFJREFRQUJBb0lCQUZPNGMzRnlSZnpOVXkyQwpRdHd4aEhVR1hxNkZ1WUNiNzBHSTMvUXR6RVV5bUNtMVdRbGxCQjdQdm8wdHVSMDdEeTAzR3phbTB0OGtEYUlrCkNMc0Z6ZFR5cU0ySkJFZHo4Um52amhPY0lvbU1SeHJDTHJWTEpNVG1LOVhNRjdzZHN0Q0hLT0I2Yi9tMkRSQ1gKUUlsQmRmYmpaYVQxTVRoRmpKSE05VU5WVWhDeTBNUkF0cWZLcXpXTURBa3pjaTBUa3FZZFBweTVLVEFiekRXVwpTVFgrMTFETy9WWjVZekJTTFVyS1FNMDdWUS9mRzU4K3g0OFg0eDJaazVkNmhFc1NBVXBLbmpsQlpXQTQvVUZGCmtDTlozVFhjejM3VFpMMnRvcC9kMzRoVU8rcE1UdVRuOUNHVms4blFYVkF2M2NFbzk5RzRHVjB4WmNsNk1QZjMKSXZncGN1RUNnWUVBK3JWaVc0VXpKMUd4VlM4QjRJdTcySzNmWmt3VEh2SFhHUTRIbWNJa0NOWC9rOXp2NG4zRwozWHNzcXhsY2YrVEMrWDBYSitrcS93NUJDOWg5M05PWE9WYTE0M3kxTGlkY2EvUnVkeTI1bFVmVE9hL2RxOTdnCnZxNXF0ejJIWjFtd3E4dTJRL1Y0cG1HZkRGL1ZURXMzMW1Sd1RlTml3MWx0U2tYcHQzbWIzVGtDZ1lFQTBaTjEKNHFRb1FBb3dmWldFUWxmSXZ6VFlQZG9vSXRSNzM5WUxNUWNPUW41cVVodGsvUnNFUTFveXNiRmdmeHFhaEhlUQpBR3h0Znpkc2FSMExNWUpMeCtXUk9MYUZacnpzTGQzUWtsMmlZRFBQUFNhbVN1clloR0cvb1RBb05MbXFmaHVjCkNhWGh1eFBnMzgra2N1L1lZbDVGdlRSbUFJREI0YU13bDdOVW9OVUNnWUJDbU9ZOHk0QlFKSXBIeDRubkhSZFUKTXJQU1Y4a0lnbE9TSzBEbm5rTzJPU3FBRzhONVZkSDZ5WnFQQk5pbWZKMHlhd0U0cjk2bERDTkpRMFFENGcwYwp4U1RoL2lHZTFnUGVCWHRHbTFYZUNzdFlXcGcyN0tpazNtNG9xT2FNRks0eXBKV1JMZWJUdzhEZEo2UGdkV2FxCnc5bDFSejdZQjZ4WmU0TGZJeVc5T1FLQmdFdFV5dW4xZ2JaTE0xVGcycEtTUlVsZGNHRURPcXdTWHBoOXNyWWoKeUI5a20wajZLZG5FelVwOGNINW91THZYVHpWUVdNV2VNOW1ualdOWEdqL29pdDdHaU9XdXpkSzVFOWdFeEVUbwpQVWFCT1B2TkdiY1NKVk9vWXg1SVZodGxwWUFBNHB5aE1MdHpFTURDUFdWSEN5dUlvVjY2Si9RRVZDeUw0UnFXClRsUWxBb0dBS0Y5blJFaFVUOXo5ajJmbXBheUNXdlE0Z0xEQjc4ZVBiUDdWWWdITkRJMGdzK1lxM1FZUFBqMW8KMjR0cjRIR1dieGNWbXpnaUxvWEk4N0RkK1ZNTDkxeEZNcU5tNG5oQzE5MUVHOXg5a0lyK2lNNGVHYU1OcU54VQpiZkw5MitUMVJaQTN3VmM1T2M5NzA0SWdpVnphWEs0enhwNEpBdVBCWGNoQzFEcnlCN0U9Ci0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==\",\r\n        \"public.crt\": \"LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURTVENDQWpFQ0NRQ0xmeWx2TVRUMGJEQU5CZ2txaGtpRzl3MEJBUXNGQURCZE1Rc3dDUVlEVlFRR0V3SksKVURFUk1BOEdBMVVFQ0F3SVMyRnVZV2RoZDJFeEVUQVBCZ05WQkFjTUNFdGhkMkZ6WVd0cE1STXdFUVlEVlFRSwpEQXBHZFdwcGRITjFVMU5NTVJNd0VRWURWUVFEREFwR2RXcHBkSE4xVTFOTU1CNFhEVEl3TURFeU1qQTBORGMwCk0xb1hEVE13TURFeE9UQTBORGMwTTFvd2NERUxNQWtHQTFVRUJoTUNTbEF4RVRBUEJnTlZCQWdNQ0V0aGJtRm4KWVhkaE1SRXdEd1lEVlFRSERBaExZWGRoYzJGcmFURVRNQkVHQTFVRUNnd0tSblZxYVhSemRWTlRUREVtTUNRRwpBMVVFQXd3ZFoybDBiR0ZpTGpFeE1TNHhOekV1TWpBeExqRTNNUzV1YVhBdWFXOHdnZ0VpTUEwR0NTcUdTSWIzCkRRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRRE5QbjduRFNTR05wQ2J1UExDci9WOWxKSlZJdGtUZG9Yb2dGWEcKTys2Wm5EWElZSHBCc1c2d2ZOa2V0cVBEQlVMZmdyOW9Cc0dYZWF3NnZMS0hmU2pGNHdvTUdrR1FJaGkwa3lEbgp3OFJwK2xGb1RuWk1rZGlIQTVRMTBVT0RtWmQzOWVhb2NEeTI0dGtVTitXNlV0MWlyU2xjNkJJaDFKYno0YkVuCkREUXd2VExkZ0JWcEFPRlFTYTY4SVZuQmMveE8yYjFHNU1ZTElQcGcvOWs0VEw4a0JNR1EyN2pSOHBhR1AvQnAKMUNBWVFWeW5NZkY0b1M1TDdZaHRrdVhyaVZzb200QVkvSWkxQ2NrandjWno3U09nd0lsdWNNVHFlbElWV2RQMApHc1Q3Qm5Id0N6K04zZk9Pa2xSSXB5OTJ1dG1TQS9TM1Z4cnRZbUV2TVJ3S3ByQnRBZ01CQUFFd0RRWUpLb1pJCmh2Y05BUUVMQlFBRGdnRUJBR3RwMXlYZTdvU2xWRFlFMktHSzlaZXh3WGEwbE5YSWxac2IxSm9BNjJrc05KaDQKbEpSQnRPRXloTjFEbTBhWW5nQTdxekU1aTN0S0FVb1I1YVJEZ1FnVHRYVklkVUN4R2VaZlhUM1JYbVFUSFM4ZwpOV1F5cXlvNzNrM2pxaXlMaVppbEtuS0xqZ1ZmOSs0eXFnWWgvSmswa3N0dXhCaVI2NFl1VmJ6V0VqeEg2dGFGCmkvc21WY3pPZ3ZFVkRPSHlscmtLWEdkL1NNblloMytLVW02d2dtczNSdGNvNUZnNzRtWXp6aUpMUzVDMFdSS2kKdjdqbzZXdCt5UXdCemJkQXNheVlONnNwMm9hZlZNZkJodVNXZVJManZ4YWZnYXM1NERWc0lUNUZaMTVtRmNMaQpkQ1ZNWllVN0p3Q1R1T0RKRHI3cWR5Z2E5YXZ1akFod3gybVN6ZEU9Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K\"\r\n    },\r\n    \"kind\": \"Secret\",\r\n    \"metadata\": {\r\n        \"name\": \"{{mockdeploy}}-tls\",\r\n        \"namespace\": \"{{namespace}}\"\r\n    },\r\n    \"type\": \"Opaque\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/namespaces/:namespace/secrets",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"namespaces",
+								":namespace",
+								"secrets"
+							],
+							"variable": [
+								{
+									"key": "namespace",
+									"value": "{{namespace}}",
+									"description": "object name and auth scope, such as for teams and projects"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create mock Deployment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "fe7ea8ec-3e68-4e3d-8399-75195683b6dc",
+								"exec": [
+									"pm.test(\"response is ok\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"kind\": \"Deployment\",\r\n    \"apiVersion\": \"apps/v1\",\r\n    \"metadata\": {\r\n        \"name\": \"{{mockdeploy}}\",\r\n        \"namespace\": \"{{namespace}}\"\r\n    },\r\n    \"spec\": {\r\n        \"replicas\": 1,\r\n        \"selector\": {\r\n            \"matchLabels\": {\r\n                \"app\": \"{{mockdeploy}}\"\r\n            }\r\n        },\r\n        \"template\": {\r\n            \"metadata\": {\r\n                \"creationTimestamp\": null,\r\n                \"labels\": {\r\n                    \"app\": \"{{mockdeploy}}\"\r\n                }\r\n            },\r\n            \"spec\": {\r\n                \"containers\": [\r\n                    {\r\n                        \"name\": \"{{mockdeploy}}\",\r\n                        \"image\": \"{{mockimage}}\",\r\n                        \"args\": [\r\n                            \"server\",\r\n                            \"/data\"\r\n                        ],\r\n                        \"env\": [\r\n                        \t{\r\n                        \t\t\"name\": \"MINIO_ACCESS_KEY\",\r\n                        \t\t\"value\": \"{{accesskey}}\"\r\n                        \t},\r\n                        \t{\r\n                        \t\t\"name\": \"MINIO_SECRET_KEY\",\r\n                        \t\t\"value\": \"{{secretkey}}\"\r\n                        \t},\r\n                        \t{\r\n                        \t\t\"name\": \"MINIO_DOMAIN\",\r\n                        \t\t\"value\": \"{{mockdeploy}}.{{clusterip}}.nip.io\"\r\n                        \t}\r\n                        ],\r\n                        \"imagePullPolicy\": \"IfNotPresent\",\r\n                        \"ports\": [\r\n                            {\r\n                                \"containerPort\": 9000,\r\n                                \"protocol\": \"TCP\"\r\n                            }\r\n                        ],\r\n                        \"volumeMounts\": [\r\n                            {\r\n                                \"mountPath\": \"/root/.minio\",\r\n                                \"name\": \"secret\"\r\n                            }\r\n                        ]                        \r\n                    }\r\n                ],\r\n                \"volumes\": [\r\n                    {\r\n                        \"name\": \"secret\",\r\n                        \"secret\": {\r\n                            \"defaultMode\": 420,\r\n                            \"items\": [\r\n                                {\r\n                                    \"key\": \"public.crt\",\r\n                                    \"path\": \"certs/public.crt\"\r\n                                },\r\n                                {\r\n                                    \"key\": \"private.key\",\r\n                                    \"path\": \"certs/private.key\"\r\n                                },\r\n                                {\r\n                                    \"key\": \"public.crt\",\r\n                                    \"path\": \"certs/CAs/public.crt\"\r\n                                }\r\n                            ],\r\n                            \"secretName\": \"{{mockdeploy}}-tls\"\r\n                        }\r\n                    }\r\n                ]\r\n            }\r\n        }\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/apis/apps/v1/namespaces/:namespace/deployments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"apis",
+								"apps",
+								"v1",
+								"namespaces",
+								":namespace",
+								"deployments"
+							],
+							"variable": [
+								{
+									"key": "namespace",
+									"value": "{{namespace}}",
+									"description": "object name and auth scope, such as for teams and projects"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create mock Service",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "c32235c6-e967-4a85-9d55-4a45cf96d1f5",
+								"exec": [
+									"pm.test(\"response is ok\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"apiVersion\": \"v1\",\n    \"kind\": \"Service\",\n    \"metadata\": {\n        \"name\": \"{{mockdeploy}}\",\n        \"namespace\": \"{{namespace}}\"\n    },\n    \"spec\": {\n        \"ports\": [\n            {\n                \"port\": 443,\n                \"protocol\": \"TCP\",\n                \"targetPort\": 9000\n            }\n        ],\n        \"clusterIP\": \"{{clusterip}}\",\n        \"selector\": {\n            \"app\": \"{{mockdeploy}}\"\n        },\n        \"sessionAffinity\": \"None\",\n        \"type\": \"ClusterIP\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/namespaces/:namespace/services",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"namespaces",
+								":namespace",
+								"services"
+							],
+							"variable": [
+								{
+									"key": "namespace",
+									"value": "{{namespace}}",
+									"description": "object name and auth scope, such as for teams and projects"
+								}
+							]
+						},
+						"description": "create a Service"
+					},
+					"response": []
+				},
+				{
+					"name": "wait mock Deployment ready",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "d1c2677e-22c9-4a9d-bc1e-1cb116f1899b",
+								"exec": [
+									"const maxTries = 10; // max number of tries",
+									"const sleep = 30000; // interval in msec",
+									"",
+									"if (!pm.environment.get(\"tries\")) {",
+									"    pm.environment.set(\"tries\", 1);",
+									"}",
+									"",
+									"var body = JSON.parse(responseBody)",
+									"",
+									"if (pm.environment.get(\"tries\") <= maxTries && (!(\"status\" in body) || !(\"readyReplicas\" in body.status) || body.status.readyReplicas != 1)) {",
+									"     var tries = parseInt(pm.environment.get(\"tries\"), 10);",
+									"     pm.environment.set(\"tries\", tries + 1);",
+									"    console.log(\"Wait for mock deployment becomes ready : try \" + tries)",
+									"    setTimeout(function() {}, sleep);",
+									"    postman.setNextRequest(\"wait mock Deployment ready\");",
+									"} else {",
+									"    pm.environment.unset(\"tries\");",
+									"    pm.test(\"Ready replicas OK\", function () {",
+									"        pm.expect(body.status.readyReplicas).to.equal(1)",
+									"    });",
+									"}",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/apis/apps/v1/namespaces/:namespace/deployments/:name",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"apis",
+								"apps",
+								"v1",
+								"namespaces",
+								":namespace",
+								"deployments",
+								":name"
+							],
+							"variable": [
+								{
+									"key": "namespace",
+									"value": "{{namespace}}",
+									"description": "object name and auth scope, such as for teams and projects"
+								},
+								{
+									"key": "name",
+									"value": "{{mockdeploy}}"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"protocolProfileBehavior": {}
+		},
+		{
+			"name": "deploy Controller",
+			"item": [
+				{
+					"name": "create Deployment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "fe7ea8ec-3e68-4e3d-8399-75195683b6dc",
+								"exec": [
+									"pm.test(\"response is ok\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"kind\": \"Deployment\",\r\n    \"apiVersion\": \"apps/v1\",\r\n    \"metadata\": {\r\n        \"name\": \"{{deploy}}\",\r\n        \"namespace\": \"{{namespace}}\"\r\n    },\r\n    \"spec\": {\r\n        \"replicas\": 1,\r\n        \"selector\": {\r\n            \"matchLabels\": {\r\n                \"app\": \"{{deploy}}\"\r\n            }\r\n        },\r\n        \"template\": {\r\n            \"metadata\": {\r\n                \"creationTimestamp\": null,\r\n                \"labels\": {\r\n                    \"app\": \"{{deploy}}\"\r\n                }\r\n            },\r\n            \"spec\": {\r\n                \"containers\": [\r\n                    {\r\n                        \"name\": \"{{deploy}}\",\r\n                        \"image\": \"{{image}}\",\r\n                        \"command\": [\r\n                            \"/{{command}}\",\r\n                            \"--namespace={{namespace}}\",\r\n                            \"--insecure=true\",\r\n                            \"--createbucket=true\"\r\n                        ],\r\n                        \"imagePullPolicy\": \"Always\"\r\n                    }\r\n                ],\r\n                \"imagePullSecrets\": [\r\n                    {\r\n                        \"name\": \"myregistrykey\"\r\n                    }\r\n                ]\r\n            }\r\n        }\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/apis/apps/v1/namespaces/:namespace/deployments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"apis",
+								"apps",
+								"v1",
+								"namespaces",
+								":namespace",
+								"deployments"
+							],
+							"variable": [
+								{
+									"key": "namespace",
+									"value": "{{namespace}}",
+									"description": "object name and auth scope, such as for teams and projects"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "wait Deployment ready",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "d1c2677e-22c9-4a9d-bc1e-1cb116f1899b",
+								"exec": [
+									"const maxTries = 10; // max number of tries",
+									"const sleep = 30000; // interval in msec",
+									"",
+									"if (!pm.environment.get(\"tries\")) {",
+									"    pm.environment.set(\"tries\", 1);",
+									"}",
+									"",
+									"var body = JSON.parse(responseBody)",
+									"",
+									"if (pm.environment.get(\"tries\") <= maxTries && (!(\"status\" in body) || !(\"readyReplicas\" in body.status) || body.status.readyReplicas != 1)) {",
+									"     var tries = parseInt(pm.environment.get(\"tries\"), 10);",
+									"     pm.environment.set(\"tries\", tries + 1);",
+									"    console.log(\"Wait for deployment becomes ready : try \" + tries)",
+									"    setTimeout(function() {}, sleep);",
+									"    postman.setNextRequest(\"wait Deployment ready\");",
+									"} else {",
+									"    pm.environment.unset(\"tries\");",
+									"    pm.test(\"Ready replicas OK\", function () {",
+									"        pm.expect(body.status.readyReplicas).to.equal(1)",
+									"    });",
+									"}",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/apis/apps/v1/namespaces/:namespace/deployments/:name",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"apis",
+								"apps",
+								"v1",
+								"namespaces",
+								":namespace",
+								"deployments",
+								":name"
+							],
+							"variable": [
+								{
+									"key": "namespace",
+									"value": "{{namespace}}",
+									"description": "object name and auth scope, such as for teams and projects"
+								},
+								{
+									"key": "name",
+									"value": "{{deploy}}"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"protocolProfileBehavior": {}
+		},
+		{
+			"name": "create/expire Snapshot",
+			"item": [
+				{
+					"name": "create Snapshot",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "e06673ca-54aa-4d14-868e-03ca8fed0bcf",
+								"exec": [
+									"pm.test(\"response is ok\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "authorization",
+								"value": "",
+								"description": "Bearer Token authentication"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apiVersion\": \"{{groupname}}/v1alpha1\",\r\n    \"kind\": \"Snapshot\",\r\n    \"metadata\": {\r\n        \"name\": \"{{targetname}}-001\",\r\n        \"namespace\": \"{{namespace}}\"\r\n    },\r\n    \"spec\": {\r\n        \"clusterName\": \"{{targetname}}\",\r\n        \"kubeconfig\": \"apiVersion: v1\\nclusters:\\n- cluster:\\n    certificate-authority-data: {{cacert}}\\n    server: {{baseUrl}}\\n  name: kubernetes\\ncontexts:\\n- context:\\n    cluster: kubernetes\\n    user: apiuser\\n  name: apiuser@kubernetes\\ncurrent-context: apiuser@kubernetes\\nkind: Config\\npreferences: {}\\nusers:\\n- name: apiuser\\n  user:\\n    token: {{token}}\\n\",\r\n        \"objectstoreConfig\": \"{{objectstoreconfig}}\",\r\n        \"ttl\": \"0h0m30s\"\r\n    }\r\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/apis/{{groupname}}/v1alpha1/namespaces/:namespace/snapshots",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"apis",
+								"{{groupname}}",
+								"v1alpha1",
+								"namespaces",
+								":namespace",
+								"snapshots"
+							],
+							"variable": [
+								{
+									"key": "namespace",
+									"value": "{{namespace}}",
+									"description": "object name and auth scope, such as for teams and projects"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "wait Snapshot Completed",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "dd426c34-b396-4ad1-a9fa-f5d891e3e881",
+								"exec": [
+									"const maxTries = 10; // max number of tries",
+									"const sleep = 30000; // interval in msec",
+									"",
+									"if (!pm.environment.get(\"tries\")) {",
+									"    pm.environment.set(\"tries\", 1);",
+									"}",
+									"",
+									"var body = JSON.parse(responseBody)",
+									"",
+									"if (pm.environment.get(\"tries\") <= maxTries && (!(\"phase\" in body.status) || body.status.phase === \"InQueue\" || body.status.phase === \"InProgress\" || body.status.phase === \"\")) {",
+									"     var tries = parseInt(pm.environment.get(\"tries\"), 10);",
+									"     pm.environment.set(\"tries\", tries + 1);",
+									"    console.log(\"Wait for snapshot completed : try \" + tries)",
+									"    setTimeout(function() {}, sleep);",
+									"    postman.setNextRequest(\"wait Snapshot Completed\");",
+									"} else {",
+									"    //postman.setNextRequest(null);",
+									"    pm.environment.unset(\"tries\");",
+									"",
+									"    pm.test(\"Snapshot Completed\", function () {",
+									"        pm.expect(body.status.phase).to.equal(\"Completed\")",
+									"    });",
+									"}",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"description": "Bearer Token authentication",
+								"key": "authorization",
+								"value": ""
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/apis/{{groupname}}/v1alpha1/namespaces/:namespace/snapshots/:name",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"apis",
+								"{{groupname}}",
+								"v1alpha1",
+								"namespaces",
+								":namespace",
+								"snapshots",
+								":name"
+							],
+							"variable": [
+								{
+									"key": "namespace",
+									"value": "{{namespace}}",
+									"description": "object name and auth scope, such as for teams and projects"
+								},
+								{
+									"key": "name",
+									"value": "{{targetname}}-001",
+									"description": "name of the Snapshot"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "wait Snapshot expired",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "dd426c34-b396-4ad1-a9fa-f5d891e3e881",
+								"exec": [
+									"const maxTries = 10; // max number of tries",
+									"const sleep = 30000; // interval in msec",
+									"",
+									"if (!pm.environment.get(\"tries\")) {",
+									"    pm.environment.set(\"tries\", 1);",
+									"}",
+									"",
+									"if (pm.environment.get(\"tries\") <= maxTries && responseCode.code == 200) {",
+									"    var tries = parseInt(pm.environment.get(\"tries\"), 10);",
+									"    pm.environment.set(\"tries\", tries + 1);",
+									"    console.log(\"Wait for snapshot expired : try \" + tries)",
+									"    setTimeout(function() {}, sleep);",
+									"    postman.setNextRequest(\"wait Snapshot expired\");",
+									"} else {",
+									"    //postman.setNextRequest(null);",
+									"    pm.environment.unset(\"tries\");",
+									"",
+									"    pm.test(\"response is Not Found\", function () {",
+									"        pm.response.to.have.status(404);",
+									"    });",
+									"}",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"description": "Bearer Token authentication",
+								"key": "authorization",
+								"value": ""
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/apis/{{groupname}}/v1alpha1/namespaces/:namespace/snapshots/:name",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"apis",
+								"{{groupname}}",
+								"v1alpha1",
+								"namespaces",
+								":namespace",
+								"snapshots",
+								":name"
+							],
+							"variable": [
+								{
+									"key": "namespace",
+									"value": "{{namespace}}",
+									"description": "object name and auth scope, such as for teams and projects"
+								},
+								{
+									"key": "name",
+									"value": "{{targetname}}-001",
+									"description": "name of the Snapshot"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"protocolProfileBehavior": {}
+		},
+		{
+			"name": "backup/restore Test App",
+			"item": [
+				{
+					"name": "store Namespaces",
+					"item": [
+						{
+							"name": "list Namespace",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"id": "8c304714-60ba-4248-adcb-5b67aa2ba53a",
+										"exec": [
+											"body = JSON.parse(responseBody)",
+											"    var namespaces = \"\"",
+											"",
+											"if ((\"items\" in body) && (body.items.length > 0)) {",
+											"    for (ns of body.items) {",
+											"        namespaces += '\"' + ns.metadata.name + '\",'",
+											"    }",
+											"    namespaces = namespaces.slice(0, -1)",
+											"}",
+											"",
+											"pm.environment.set(\"residentnamespaces\", namespaces);",
+											"console.log(\"namespaces : \" + pm.environment.get(\"residentnamespaces\"));",
+											"",
+											"pm.test(\"Get residential namespaces OK\", function () {",
+											"    pm.expect(namespaces).to.have.string(\"kube-system\")",
+											"});",
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "authorization",
+										"value": "",
+										"description": "Bearer Token authentication"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/namespaces",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"namespaces"
+									]
+								}
+							},
+							"response": []
+						}
+					],
+					"protocolProfileBehavior": {},
+					"_postman_isSubFolder": true
+				},
+				{
+					"name": "deploy Test App",
+					"item": [
+						{
+							"name": "create Test App Namespace",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"id": "f3ac0983-376a-4bd1-9709-4a317d841f41",
+										"exec": [
+											"pm.test(\"response is ok\", function () {",
+											"    pm.response.to.have.status(201);",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"apiVersion\": \"v1\",\n    \"kind\": \"Namespace\",\n    \"metadata\": {\n        \"name\": \"{{testappns}}\"\n    }\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/namespaces",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"namespaces"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "create Test App Deployment",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"id": "fe7ea8ec-3e68-4e3d-8399-75195683b6dc",
+										"exec": [
+											"pm.test(\"response is ok\", function () {",
+											"    pm.response.to.have.status(201);",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"name": "Content-Type",
+										"type": "text",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"kind\": \"Deployment\",\r\n    \"apiVersion\": \"apps/v1\",\r\n    \"metadata\": {\r\n        \"name\": \"{{testappdeploy}}\",\r\n        \"namespace\": \"{{testappns}}\"\r\n    },\r\n    \"spec\": {\r\n        \"replicas\": 3,\r\n        \"selector\": {\r\n            \"matchLabels\": {\r\n                \"app\": \"{{testappdeploy}}\"\r\n            }\r\n        },\r\n        \"template\": {\r\n            \"metadata\": {\r\n                \"creationTimestamp\": null,\r\n                \"labels\": {\r\n                    \"app\": \"{{testappdeploy}}\"\r\n                }\r\n            },\r\n            \"spec\": {\r\n                \"containers\": [\r\n                    {\r\n                        \"name\": \"{{testappdeploy}}\",\r\n                        \"image\": \"{{testappimage}}\"\r\n                    }\r\n                ]\r\n            }\r\n        }\r\n    }\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/apis/apps/v1/namespaces/:namespace/deployments",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"apis",
+										"apps",
+										"v1",
+										"namespaces",
+										":namespace",
+										"deployments"
+									],
+									"variable": [
+										{
+											"key": "namespace",
+											"value": "{{testappns}}",
+											"description": "object name and auth scope, such as for teams and projects"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "wait Test App Deployment ready",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"id": "d1c2677e-22c9-4a9d-bc1e-1cb116f1899b",
+										"exec": [
+											"const maxTries = 10; // max number of tries",
+											"const sleep = 30000; // interval in msec",
+											"",
+											"if (!pm.environment.get(\"tries\")) {",
+											"    pm.environment.set(\"tries\", 1);",
+											"}",
+											"",
+											"var body = JSON.parse(responseBody)",
+											"",
+											"if (pm.environment.get(\"tries\") <= maxTries && (!(\"status\" in body) || !(\"readyReplicas\" in body.status) || body.status.readyReplicas != 3)) {",
+											"     var tries = parseInt(pm.environment.get(\"tries\"), 10);",
+											"     pm.environment.set(\"tries\", tries + 1);",
+											"    console.log(\"Wait for deployment becomes ready : try \" + tries)",
+											"    setTimeout(function() {}, sleep);",
+											"    postman.setNextRequest(\"wait Test App Deployment ready\");",
+											"} else {",
+											"    pm.environment.unset(\"tries\");",
+											"    pm.test(\"Ready replicas OK\", function () {",
+											"        pm.expect(body.status.readyReplicas).to.equal(3)",
+											"    });",
+											"}",
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/apis/apps/v1/namespaces/:namespace/deployments/:name",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"apis",
+										"apps",
+										"v1",
+										"namespaces",
+										":namespace",
+										"deployments",
+										":name"
+									],
+									"variable": [
+										{
+											"key": "namespace",
+											"value": "{{testappns}}",
+											"description": "object name and auth scope, such as for teams and projects"
+										},
+										{
+											"key": "name",
+											"value": "{{testappdeploy}}"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					],
+					"protocolProfileBehavior": {},
+					"_postman_isSubFolder": true
+				},
+				{
+					"name": "take Snapshot",
+					"item": [
+						{
+							"name": "create Test App Snapshot",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"id": "e06673ca-54aa-4d14-868e-03ca8fed0bcf",
+										"exec": [
+											"pm.test(\"response is ok\", function () {",
+											"    pm.response.to.have.status(201);",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"description": "Bearer Token authentication",
+										"key": "authorization",
+										"value": ""
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"apiVersion\": \"{{groupname}}/v1alpha1\",\r\n    \"kind\": \"Snapshot\",\r\n    \"metadata\": {\r\n        \"name\": \"{{targetname}}-002\",\r\n        \"namespace\": \"{{namespace}}\"\r\n    },\r\n    \"spec\": {\r\n        \"clusterName\": \"{{targetname}}\",\r\n        \"kubeconfig\": \"apiVersion: v1\\nclusters:\\n- cluster:\\n    certificate-authority-data: {{cacert}}\\n    server: {{baseUrl}}\\n  name: kubernetes\\ncontexts:\\n- context:\\n    cluster: kubernetes\\n    user: apiuser\\n  name: apiuser@kubernetes\\ncurrent-context: apiuser@kubernetes\\nkind: Config\\npreferences: {}\\nusers:\\n- name: apiuser\\n  user:\\n    token: {{token}}\\n\",\r\n        \"objectstoreConfig\": \"{{objectstoreconfig}}\",\r\n        \"ttl\": \"1h0m0s\"\r\n    }\r\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/apis/{{groupname}}/v1alpha1/namespaces/:namespace/snapshots",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"apis",
+										"{{groupname}}",
+										"v1alpha1",
+										"namespaces",
+										":namespace",
+										"snapshots"
+									],
+									"variable": [
+										{
+											"key": "namespace",
+											"value": "{{namespace}}",
+											"description": "object name and auth scope, such as for teams and projects"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "wait Test App Snapshot Completed",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"id": "dd426c34-b396-4ad1-a9fa-f5d891e3e881",
+										"exec": [
+											"const maxTries = 10; // max number of tries",
+											"const sleep = 30000; // interval in msec",
+											"",
+											"if (!pm.environment.get(\"tries\")) {",
+											"    pm.environment.set(\"tries\", 1);",
+											"}",
+											"",
+											"var body = JSON.parse(responseBody)",
+											"",
+											"if (pm.environment.get(\"tries\") <= maxTries && (!(\"phase\" in body.status) || body.status.phase === \"InQueue\" || body.status.phase === \"InProgress\" || body.status.phase === \"\")) {",
+											"     var tries = parseInt(pm.environment.get(\"tries\"), 10);",
+											"     pm.environment.set(\"tries\", tries + 1);",
+											"    console.log(\"Wait for snapshot completed : try \" + tries)",
+											"    setTimeout(function() {}, sleep);",
+											"    postman.setNextRequest(\"wait Test App Snapshot Completed\");",
+											"} else {",
+											"    //postman.setNextRequest(null);",
+											"    pm.environment.unset(\"tries\");",
+											"",
+											"    pm.test(\"Snapshot Completed\", function () {",
+											"        pm.expect(body.status.phase).to.equal(\"Completed\")",
+											"    });",
+											"}",
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"description": "Bearer Token authentication",
+										"key": "authorization",
+										"value": ""
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/apis/{{groupname}}/v1alpha1/namespaces/:namespace/snapshots/:name",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"apis",
+										"{{groupname}}",
+										"v1alpha1",
+										"namespaces",
+										":namespace",
+										"snapshots",
+										":name"
+									],
+									"variable": [
+										{
+											"key": "namespace",
+											"value": "{{namespace}}",
+											"description": "object name and auth scope, such as for teams and projects"
+										},
+										{
+											"key": "name",
+											"value": "{{targetname}}-002",
+											"description": "name of the Snapshot"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					],
+					"protocolProfileBehavior": {},
+					"_postman_isSubFolder": true
+				},
+				{
+					"name": "delete Test App",
+					"item": [
+						{
+							"name": "delete Test App Namespace",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"id": "3737dc08-ddf5-44f9-8655-695ef0e1873c",
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"id": "5732a9b0-058a-4a53-ad31-ed4ef4051348",
+										"exec": [
+											"pm.test(\"response is ok\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/namespaces/{{testappns}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"namespaces",
+										"{{testappns}}"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "wait Test App Pods deleted",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"id": "dd426c34-b396-4ad1-a9fa-f5d891e3e881",
+										"exec": [
+											"const maxTries = 10; // max number of tries",
+											"const sleep = 30000; // interval in msec",
+											"",
+											"if (!pm.environment.get(\"tries\")) {",
+											"    pm.environment.set(\"tries\", 1);",
+											"}",
+											"",
+											"var body = JSON.parse(responseBody)",
+											"",
+											"if (pm.environment.get(\"tries\") <= maxTries && 'items' in body && body.items.length > 0 ) {",
+											"    var tries = parseInt(pm.environment.get(\"tries\"), 10);",
+											"    pm.environment.set(\"tries\", tries + 1);",
+											"    console.log(\"Wait for Test App deleted : try \" + tries)",
+											"    setTimeout(function() {}, sleep);",
+											"    postman.setNextRequest(\"wait Test App Pods deleted\");",
+											"} else {",
+											"    //postman.setNextRequest(null);",
+											"    pm.environment.unset(\"tries\");",
+											"",
+											"    pm.test(\"Pods Not Found\", function () {",
+											"        pm.response.to.have.status(200);",
+											"        pm.expect(body.items.length).to.equal(0)",
+											"    });",
+											"}",
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"description": "Bearer Token authentication",
+										"key": "authorization",
+										"value": ""
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/namespaces/:namespace/pods",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"namespaces",
+										":namespace",
+										"pods"
+									],
+									"variable": [
+										{
+											"key": "namespace",
+											"value": "{{testappns}}",
+											"description": "object name and auth scope, such as for teams and projects"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					],
+					"protocolProfileBehavior": {},
+					"_postman_isSubFolder": true
+				},
+				{
+					"name": "restore Test App",
+					"item": [
+						{
+							"name": "create Restore Preference",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"id": "f8a423e8-cc67-418a-915a-0f2136a97466",
+										"exec": [
+											"pm.test(\"response is ok\", function () {",
+											"    pm.response.to.have.status(201);",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"apiVersion\": \"{{groupname}}/v1alpha1\",\n    \"kind\": \"RestorePreference\",\n    \"metadata\": {\n        \"name\": \"{{preference}}\",\n        \"namespace\": \"{{namespace}}\"\n    },\n    \"spec\": {\n        \"excludeApiPathes\": [\n            \"/api/v1,bindings\",\n            \"/api/v1,componentstatuses\",\n            \"/api/v1,events\",\n            \"/api/v1,limitranges\",\n            \"/api/v1,nodes\",\n            \"/api/v1,resourcequotas\",\n            \"/apis/apiregistration.k8s.io\",\n            \"/apis/extensions,daemonsets\",\n            \"/apis/extensions,deployments\",\n            \"/apis/extensions,networkpolicies\",\n            \"/apis/extensions,podsecuritypolicies\",\n            \"/apis/extensions,replicasets\",\n            \"/apis/extensions,replicationcontrollers\",\n            \"/apis/scheduling.k8s.io\",\n            \"/apis/events.k8s.io\",\n            \"/apis/certificates.k8s.io\",\n            \"/apis/networking.k8s.io\",\n            \"/apis/admissionregistration.k8s.io\",\n            \"/apis/authentication.k8s.io\",\n            \"/apis/authorization.k8s.io\",\n            \"/apis/crd.projectcalico.org\",\n            \"/api/v1/namespaces/default/services/kubernetes\",\n            \"/api/v1/namespaces/default/endpoints/kubernetes\",\n            \"/apis/rbac.authorization.k8s.io/v1/clusterroles/system%3A\",\n            \"/apis/rbac.authorization.k8s.io/v1/clusterrolebindings/system%3A\",\n            \"/apis/crd.projectcalico.org\",\n            \"/apis/project.cattle.io\",\n            \"/apis/management.cattle.io\"\n        ],\n        \"excludeCRDs\": [\n            \"crd.projectcalico.org\",\n            \"project.cattle.io\",\n            \"management.cattle.io\"\n        ],\n        \"excludeNamespaces\": [{{residentnamespaces}}],\n        \"restoreAppApiPathes\": [\n            \"/api/v1,pods\",\n            \"/api/v1,replicationcontrollers\",\n            \"/apis/apps\",\n            \"/api/v1,endpoints\",\n            \"/api/v1,services\",\n            \"/apis/extensions,ingresses\",\n            \"/apis/autoscaling,horizontalpodautoscalers\",\n            \"/apis/batch,jobs\",\n            \"/apis/batch,cronjobs\"\n        ],\n        \"restoreNfsStorageClasses\": [\n            \"managed-nfs-storage\"\n        ],\n        \"restoreOptions\": []\n    }\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/apis/{{groupname}}/v1alpha1/namespaces/:namespace/restorepreferences",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"apis",
+										"{{groupname}}",
+										"v1alpha1",
+										"namespaces",
+										":namespace",
+										"restorepreferences"
+									],
+									"variable": [
+										{
+											"key": "namespace",
+											"value": "{{namespace}}",
+											"description": "object name and auth scope, such as for teams and projects"
+										}
+									]
+								},
+								"description": "create a RestorePreference"
+							},
+							"response": []
+						},
+						{
+							"name": "create Test App Restore",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"id": "e06673ca-54aa-4d14-868e-03ca8fed0bcf",
+										"exec": [
+											"pm.test(\"response is ok\", function () {",
+											"    pm.response.to.have.status(201);",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"apiVersion\": \"{{groupname}}/v1alpha1\",\r\n    \"kind\": \"Restore\",\r\n    \"metadata\": {\r\n        \"name\": \"{{targetname}}-002-restore-01\",\r\n        \"namespace\": \"{{namespace}}\"\r\n    },\r\n    \"spec\": {\r\n        \"clusterName\": \"{{targetname}}\",\r\n        \"kubeconfig\": \"apiVersion: v1\\nclusters:\\n- cluster:\\n    certificate-authority-data: {{cacert}}\\n    server: {{baseUrl}}\\n  name: kubernetes\\ncontexts:\\n- context:\\n    cluster: kubernetes\\n    user: apiuser\\n  name: apiuser@kubernetes\\ncurrent-context: apiuser@kubernetes\\nkind: Config\\npreferences: {}\\nusers:\\n- name: apiuser\\n  user:\\n    token: {{token}}\\n\",\r\n        \"objectstoreConfig\": \"{{objectstoreconfig}}\",\r\n        \"snapshotName\": \"{{targetname}}-002\",\r\n        \"restorePreferenceName\": \"{{preference}}\",\r\n        \"ttl\": \"1h0m0s\"\r\n    }\r\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/apis/{{groupname}}/v1alpha1/namespaces/:namespace/restores",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"apis",
+										"{{groupname}}",
+										"v1alpha1",
+										"namespaces",
+										":namespace",
+										"restores"
+									],
+									"variable": [
+										{
+											"key": "namespace",
+											"value": "{{namespace}}",
+											"description": "object name and auth scope, such as for teams and projects"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "wait Test App Restore Completed",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"id": "dd426c34-b396-4ad1-a9fa-f5d891e3e881",
+										"exec": [
+											"const maxTries = 10; // max number of tries",
+											"const sleep = 30000; // interval in msec",
+											"",
+											"if (!pm.environment.get(\"tries\")) {",
+											"    pm.environment.set(\"tries\", 1);",
+											"}",
+											"",
+											"var body = JSON.parse(responseBody)",
+											"",
+											"if (pm.environment.get(\"tries\") <= maxTries && (!(\"phase\" in body.status) || body.status.phase === \"InQueue\" || body.status.phase === \"InProgress\" || body.status.phase === \"\")) {",
+											"     var tries = parseInt(pm.environment.get(\"tries\"), 10);",
+											"     pm.environment.set(\"tries\", tries + 1);",
+											"    console.log(\"Wait for restore completed : try \" + tries)",
+											"    setTimeout(function() {}, sleep);",
+											"    postman.setNextRequest(\"wait Test App Restore Completed\");",
+											"} else {",
+											"    //postman.setNextRequest(null);",
+											"    pm.environment.unset(\"tries\");",
+											"",
+											"    pm.test(\"Restore Completed\", function () {",
+											"        pm.expect(body.status.phase).to.equal(\"Completed\")",
+											"    });",
+											"}",
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"description": "Bearer Token authentication",
+										"key": "authorization",
+										"value": ""
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/apis/{{groupname}}/v1alpha1/namespaces/:namespace/restores/:name",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"apis",
+										"{{groupname}}",
+										"v1alpha1",
+										"namespaces",
+										":namespace",
+										"restores",
+										":name"
+									],
+									"variable": [
+										{
+											"key": "namespace",
+											"value": "{{namespace}}",
+											"description": "object name and auth scope, such as for teams and projects"
+										},
+										{
+											"key": "name",
+											"value": "{{targetname}}-002-restore-01",
+											"description": "name of the Snapshot"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "wait Test App Restored Deployment ready",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"id": "d1c2677e-22c9-4a9d-bc1e-1cb116f1899b",
+										"exec": [
+											"const maxTries = 10; // max number of tries",
+											"const sleep = 30000; // interval in msec",
+											"",
+											"if (!pm.environment.get(\"tries\")) {",
+											"    pm.environment.set(\"tries\", 1);",
+											"}",
+											"",
+											"var body = JSON.parse(responseBody)",
+											"",
+											"if (pm.environment.get(\"tries\") <= maxTries && (!(\"status\" in body) || !(\"readyReplicas\" in body.status) || body.status.readyReplicas != 3)) {",
+											"     var tries = parseInt(pm.environment.get(\"tries\"), 10);",
+											"     pm.environment.set(\"tries\", tries + 1);",
+											"    console.log(\"Wait for deployment becomes ready : try \" + tries)",
+											"    setTimeout(function() {}, sleep);",
+											"    postman.setNextRequest(\"wait Test App Restored Deployment ready\");",
+											"} else {",
+											"    pm.environment.unset(\"tries\");",
+											"    pm.test(\"Restored Ready replicas OK\", function () {",
+											"        pm.expect(body.status.readyReplicas).to.equal(3)",
+											"    });",
+											"}",
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/apis/apps/v1/namespaces/:namespace/deployments/:name",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"apis",
+										"apps",
+										"v1",
+										"namespaces",
+										":namespace",
+										"deployments",
+										":name"
+									],
+									"variable": [
+										{
+											"key": "namespace",
+											"value": "{{testappns}}",
+											"description": "object name and auth scope, such as for teams and projects"
+										},
+										{
+											"key": "name",
+											"value": "{{testappdeploy}}"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					],
+					"protocolProfileBehavior": {},
+					"_postman_isSubFolder": true
+				},
+				{
+					"name": "clean Test App",
+					"item": [
+						{
+							"name": "delete Test App Namespace",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"id": "3737dc08-ddf5-44f9-8655-695ef0e1873c",
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"id": "22f6f039-cfac-46d9-9a30-8dc780f89350",
+										"exec": [
+											"pm.test(\"response is ok\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/namespaces/{{testappns}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"namespaces",
+										"{{testappns}}"
+									]
+								}
+							},
+							"response": []
+						}
+					],
+					"protocolProfileBehavior": {},
+					"_postman_isSubFolder": true
+				}
+			],
+			"protocolProfileBehavior": {}
+		},
+		{
+			"name": "get Logs",
+			"item": [
+				{
+					"name": "get Pod name",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "0f1d307a-edad-4085-a856-2b765ce19081",
+								"exec": [
+									"body = JSON.parse(responseBody)",
+									"",
+									"if ((\"items\" in body) && (body.items.length > 0)) {",
+									"    pm.environment.set(\"podname\", body.items[0].metadata.name);",
+									"    console.log(\"Pod name : \" + body.items[0].metadata.name);",
+									"} else {",
+									"    pm.environment.set(\"podname\", \"none\");",
+									"    console.log(\"Cannot get name\");",
+									"}",
+									""
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"id": "4377bb93-d1fc-46aa-a82b-7a6ddbcf6782",
+								"exec": [
+									"setTimeout(function() {}, 30000);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/namespaces/:namespace/pods?labelSelector=app%3d{{deploy}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"namespaces",
+								":namespace",
+								"pods"
+							],
+							"query": [
+								{
+									"key": "labelSelector",
+									"value": "app%3d{{deploy}}",
+									"description": "A selector to restrict the list of returned objects by their labels. Defaults to everything."
+								}
+							],
+							"variable": [
+								{
+									"key": "namespace",
+									"value": "{{namespace}}",
+									"description": "object name and auth scope, such as for teams and projects"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "get Pod logs",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "0f1d307a-edad-4085-a856-2b765ce19081",
+								"exec": [
+									"console.log(responseBody)"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/namespaces/:namespace/pods/:name/log",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"namespaces",
+								":namespace",
+								"pods",
+								":name",
+								"log"
+							],
+							"variable": [
+								{
+									"key": "namespace",
+									"value": "{{namespace}}",
+									"description": "object name and auth scope, such as for teams and projects"
+								},
+								{
+									"key": "name",
+									"value": "{{podname}}"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "e542b75a-cfea-47c8-911d-556606d17bcf",
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "c6d1ddfe-5faf-4255-86d2-d8ac7bff90bd",
+						"type": "text/javascript",
+						"exec": [
+							"pm.test(\"response is ok\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						]
+					}
+				}
+			],
+			"protocolProfileBehavior": {}
+		},
+		{
+			"name": "clear Namespace",
+			"item": [
+				{
+					"name": "delete test namespace",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"id": "3737dc08-ddf5-44f9-8655-695ef0e1873c",
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/namespaces/{{namespace}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"namespaces",
+								"{{namespace}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "delete Cluster Role Binding",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "authorization",
+								"value": "",
+								"description": "Bearer Token authentication"
+							},
+							{
+								"key": "Content-Type",
+								"value": "*/*"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{baseUrl}}/apis/rbac.authorization.k8s.io/v1/clusterrolebindings/:name",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"apis",
+								"rbac.authorization.k8s.io",
+								"v1",
+								"clusterrolebindings",
+								":name"
+							],
+							"variable": [
+								{
+									"key": "name",
+									"value": "{{namespace}}",
+									"description": "name of the ClusterRoleBinding"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "888ea962-f432-4ecf-bdb0-f036ec146131",
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "c383179b-0a6c-438b-b337-d4cb5314dbba",
+						"type": "text/javascript",
+						"exec": [
+							"pm.test(\"response is ok\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						]
+					}
+				}
+			],
+			"protocolProfileBehavior": {}
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"id": "e59bdedc-3656-49d1-b4c6-efec20721c68",
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"id": "95d9825a-703c-444f-9156-90a506564802",
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"protocolProfileBehavior": {}
+}

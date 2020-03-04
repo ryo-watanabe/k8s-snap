@@ -6,6 +6,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
@@ -249,6 +250,17 @@ func (c *Controller) updateRestoreStatus(restore *cbv1alpha1.Restore, phase, rea
 func (c *Controller) enqueueRestore(obj interface{}) {
 	var key string
 	var err error
+
+	// queue only restores in our namespace
+	meta, err := meta.Accessor(obj)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("object has no meta: %v", err))
+		return
+	}
+	if meta.GetNamespace() != c.namespace {
+		return
+	}
+
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
 		runtime.HandleError(err)
 		return

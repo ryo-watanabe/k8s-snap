@@ -8,6 +8,7 @@ import (
 	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
@@ -249,6 +250,17 @@ func (c *Controller) enqueueSnapshot(obj interface{}) {
 	var key string
 	var err error
 	//klog.Info("snapshot enqueued : %#v", obj)
+
+	// queue only snapshots in our namespace
+	meta, err := meta.Accessor(obj)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("object has no meta: %v", err))
+		return
+	}
+	if meta.GetNamespace() != c.namespace {
+		return
+	}
+
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
 		runtime.HandleError(err)
 		return
@@ -265,6 +277,12 @@ func (c *Controller) deleteSnapshot(obj interface{}) {
 		klog.Warningf("Delete snapshot: Invalid object passed: %#v", obj)
 		return
 	}
+
+	// delete only snapshots in our namespace
+	if snapshot.ObjectMeta.GetNamespace() != c.namespace {
+		return
+	}
+
 	bucket, err := c.getBucket(snapshot.Spec.ObjectstoreConfig)
 	if err != nil {
 		runtime.HandleError(err)

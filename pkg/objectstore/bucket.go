@@ -11,7 +11,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 
 	"k8s.io/klog"
 )
@@ -43,6 +45,9 @@ type Bucket struct {
 	Region     string
 	BucketName string
 	insecure   bool
+	newS3func func(*session.Session) s3iface.S3API
+	newUploaderfunc func(*session.Session) s3manageriface.UploaderAPI
+	newDownloaderfunc func(*session.Session) s3manageriface.DownloaderAPI
 }
 
 // NewBucket returns new Bucket
@@ -55,7 +60,22 @@ func NewBucket(name, accessKey, secretKey, endpoint, region, bucketName string, 
 		Region:     region,
 		BucketName: bucketName,
 		insecure:   insecure,
+		newS3func:  newS3,
+		newUploaderfunc:  newUploader,
+		newDownloaderfunc:  newDownloader,
 	}
+}
+
+func newS3(sess *session.Session) s3iface.S3API {
+	return s3.New(sess)
+}
+
+func newUploader(sess *session.Session) s3manageriface.UploaderAPI {
+	return s3manager.NewUploader(sess)
+}
+
+func newDownloader(sess *session.Session) s3manageriface.DownloaderAPI {
+	return s3manager.NewDownloader(sess)
 }
 
 func (b *Bucket) setSession() (*session.Session, error) {
@@ -90,7 +110,7 @@ func (b *Bucket) ChkBucket() (bool, error) {
 	}
 
 	// list buckets
-	svc := s3.New(sess)
+	svc := b.newS3func(sess)
 	result, err := svc.ListBuckets(nil)
 	if err != nil {
 		return false, err
@@ -115,7 +135,7 @@ func (b *Bucket) CreateBucket() error {
 		return err
 	}
 	// Create bucket
-	svc := s3.New(sess)
+	svc := b.newS3func(sess)
 	_, err = svc.CreateBucket(&s3.CreateBucketInput{Bucket: aws.String(b.BucketName)})
 	return err
 }
@@ -128,7 +148,7 @@ func (b *Bucket) Upload(file *os.File, filename string) error {
 		return err
 	}
 
-	uploader := s3manager.NewUploader(sess)
+	uploader := b.newUploaderfunc(sess)
 	_, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(b.BucketName),
 		Key:    aws.String(filename),
@@ -149,7 +169,7 @@ func (b *Bucket) Download(file *os.File, filename string) error {
 		return err
 	}
 
-	downloader := s3manager.NewDownloader(sess)
+	downloader := b.newDownloaderfunc(sess)
 	_, err = downloader.Download(file,
 		&s3.GetObjectInput{
 			Bucket: aws.String(b.BucketName),
@@ -170,7 +190,7 @@ func (b *Bucket) Delete(filename string) error {
 		return err
 	}
 
-	svc := s3.New(sess)
+	svc := b.newS3func(sess)
 	_, err = svc.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(b.BucketName),
 		Key:    aws.String(filename),
@@ -195,7 +215,7 @@ func (b *Bucket) GetObjectInfo(filename string) (*ObjectInfo, error) {
 	}
 
 	// list objects
-	svc := s3.New(sess)
+	svc := b.newS3func(sess)
 	result, err := svc.ListObjects(&s3.ListObjectsInput{
 		Bucket: aws.String(b.BucketName),
 		Prefix: aws.String(filename),
@@ -229,7 +249,7 @@ func (b *Bucket) ListObjectInfo() ([]ObjectInfo, error) {
 	}
 
 	// list objects
-	svc := s3.New(sess)
+	svc := b.newS3func(sess)
 	result, err := svc.ListObjects(&s3.ListObjectsInput{
 		Bucket: aws.String(b.BucketName),
 	})

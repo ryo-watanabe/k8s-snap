@@ -31,8 +31,10 @@ type mockS3Client struct {
 	s3iface.S3API
 }
 
+var listBucketsOutput s3.ListBucketsOutput
+
 func (m mockS3Client) ListBuckets(input *s3.ListBucketsInput) (*s3.ListBucketsOutput, error) {
-	return &s3.ListBucketsOutput{}, nil
+	return &listBucketsOutput, nil
 }
 
 func newMockS3(sess *session.Session) s3iface.S3API {

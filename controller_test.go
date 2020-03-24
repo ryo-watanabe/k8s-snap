@@ -35,6 +35,7 @@ type Case struct {
 	snapshots        []*clustersnapshot.Snapshot
 	restores         []*clustersnapshot.Restore
 	configs          []*clustersnapshot.ObjectstoreConfig
+	preferences      []*clustersnapshot.RestorePreference
 	secrets          []*corev1.Secret
 	updatedSnapshots []*clustersnapshot.Snapshot
 	updatedRestores  []*clustersnapshot.Restore
@@ -154,11 +155,35 @@ func TestRestore(t *testing.T) {
 			queueOnly: true,
 			handleKey: "test2",
 		},
+		// 1:InQueue > InProgress > Completed
+		Case{
+			snapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("snapshot", "Completed"),
+			},
+			restores: []*clustersnapshot.Restore{
+				newConfiguredRestore("test1", "InQueue"),
+			},
+			preferences: []*clustersnapshot.RestorePreference{
+				newRestorePreference(),
+			},
+			updatedRestores: []*clustersnapshot.Restore{
+				newConfiguredRestore("test1", "InProgress"),
+				newConfiguredRestore("test1", "Completed"),
+			},
+			configs: []*clustersnapshot.ObjectstoreConfig{
+				newObjectstoreConfig(),
+			},
+			secrets: []*corev1.Secret{
+				newCloudCredentialSecret(),
+			},
+			handleKey: "test1",
+		},
 	}
 
 	// Additional test data:
 	// Create restore
 	cases[0].updatedRestores[0].Spec.TTL.Duration, _ = time.ParseDuration("168h0m0s")
+	// 1:InQueue > InProgress > Completed
 
 	for _, c := range cases {
 		RestoreTestCase(&c, t)
@@ -224,6 +249,17 @@ func newObjectstoreConfig() *clustersnapshot.ObjectstoreConfig {
 	}
 }
 
+func newRestorePreference() *clustersnapshot.RestorePreference {
+	return &clustersnapshot.RestorePreference{
+		TypeMeta: metav1.TypeMeta{APIVersion: clustersnapshot.SchemeGroupVersion.String()},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "restorePreference",
+			Namespace: metav1.NamespaceDefault,
+		},
+		Spec: clustersnapshot.RestorePreferenceSpec{},
+	}
+}
+
 func newCloudCredentialSecret() *corev1.Secret {
 	return &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Secret"},
@@ -249,6 +285,7 @@ func newConfiguredRestore(name, phase string) *clustersnapshot.Restore {
 			ClusterName:  name,
 			Kubeconfig:   "kubeconfig",
 			SnapshotName: "snapshot",
+			RestorePreferenceName: "restorePreference",
 		},
 		Status: clustersnapshot.RestoreStatus{
 			Phase: phase,
@@ -395,8 +432,11 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 func filterInformerActions(actions []core.Action) []core.Action {
 	ret := []core.Action{}
 	for _, action := range actions {
-		if action.GetNamespace() == snapshotNamespace && (action.Matches("get", "objectstoreconfigs") ||
+		if action.GetNamespace() == snapshotNamespace && (
+			action.Matches("get", "objectstoreconfigs") ||
+			action.Matches("get", "restorepreferences") ||
 			action.Matches("list", "snapshots") ||
+			action.Matches("get", "snapshots") ||
 			action.Matches("watch", "snapshots")) {
 			continue
 		}
@@ -474,12 +514,19 @@ func SnapshotTestCase(c *Case, t *testing.T) {
 func RestoreTestCase(c *Case, t *testing.T) {
 	f := newFixture(t)
 
+	for _, s := range c.snapshots {
+		f.snapshotLister = append(f.snapshotLister, s)
+		f.objects = append(f.objects, s)
+	}
 	for _, r := range c.restores {
 		f.restoreLister = append(f.restoreLister, r)
 		f.objects = append(f.objects, r)
 	}
 	for _, config := range c.configs {
 		f.objects = append(f.objects, config)
+	}
+	for _, pref := range c.preferences {
+		f.objects = append(f.objects, pref)
 	}
 	for _, secret := range c.secrets {
 		f.kubeobjects = append(f.kubeobjects, secret)

@@ -38,31 +38,31 @@ type ObjectInfo struct {
 
 // Bucket for connection to a bucket in object store
 type Bucket struct {
-	Name       string
-	AccessKey  string
-	SecretKey  string
-	Endpoint   string
-	Region     string
-	BucketName string
-	insecure   bool
-	newS3func func(*session.Session) s3iface.S3API
-	newUploaderfunc func(*session.Session) s3manageriface.UploaderAPI
+	Name              string
+	AccessKey         string
+	SecretKey         string
+	Endpoint          string
+	Region            string
+	BucketName        string
+	insecure          bool
+	newS3func         func(*session.Session) s3iface.S3API
+	newUploaderfunc   func(*session.Session) s3manageriface.UploaderAPI
 	newDownloaderfunc func(*session.Session) s3manageriface.DownloaderAPI
 }
 
 // NewBucket returns new Bucket
 func NewBucket(name, accessKey, secretKey, endpoint, region, bucketName string, insecure bool) *Bucket {
 	return &Bucket{
-		Name:       name,
-		AccessKey:  accessKey,
-		SecretKey:  secretKey,
-		Endpoint:   endpoint,
-		Region:     region,
-		BucketName: bucketName,
-		insecure:   insecure,
-		newS3func:  newS3,
-		newUploaderfunc:  newUploader,
-		newDownloaderfunc:  newDownloader,
+		Name:              name,
+		AccessKey:         accessKey,
+		SecretKey:         secretKey,
+		Endpoint:          endpoint,
+		Region:            region,
+		BucketName:        bucketName,
+		insecure:          insecure,
+		newS3func:         newS3,
+		newUploaderfunc:   newUploader,
+		newDownloaderfunc: newDownloader,
 	}
 }
 

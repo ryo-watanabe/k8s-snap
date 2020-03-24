@@ -1,9 +1,9 @@
 package objectstore
 
 import (
+	"io"
 	"testing"
 	"time"
-	"io"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -15,16 +15,16 @@ import (
 // NewMockBucket returns new mock Bucket
 func NewMockBucket(name, accessKey, secretKey, endpoint, region, bucketName string, insecure bool) *Bucket {
 	return &Bucket{
-		Name:       name,
-		AccessKey:  accessKey,
-		SecretKey:  secretKey,
-		Endpoint:   endpoint,
-		Region:     region,
-		BucketName: bucketName,
-		insecure:   insecure,
-		newS3func:  newMockS3,
-		newUploaderfunc:  newMockUploader,
-		newDownloaderfunc:  newMockDownloader,
+		Name:              name,
+		AccessKey:         accessKey,
+		SecretKey:         secretKey,
+		Endpoint:          endpoint,
+		Region:            region,
+		BucketName:        bucketName,
+		insecure:          insecure,
+		newS3func:         newMockS3,
+		newUploaderfunc:   newMockUploader,
+		newDownloaderfunc: newMockDownloader,
 	}
 }
 
@@ -35,11 +35,13 @@ type mockS3Client struct {
 }
 
 var listBucketsOutput s3.ListBucketsOutput
+
 func (m mockS3Client) ListBuckets(input *s3.ListBucketsInput) (*s3.ListBucketsOutput, error) {
 	return &listBucketsOutput, nil
 }
 
 var createdBucketName string
+
 func (m mockS3Client) CreateBucket(input *s3.CreateBucketInput) (*s3.CreateBucketOutput, error) {
 	createdBucketName = *input.Bucket
 	return &s3.CreateBucketOutput{}, nil
@@ -47,6 +49,7 @@ func (m mockS3Client) CreateBucket(input *s3.CreateBucketInput) (*s3.CreateBucke
 
 var deleteObjectBucketName string
 var deleteObjectKey string
+
 func (m mockS3Client) DeleteObject(input *s3.DeleteObjectInput) (*s3.DeleteObjectOutput, error) {
 	deleteObjectBucketName = *input.Bucket
 	deleteObjectKey = *input.Key
@@ -55,6 +58,7 @@ func (m mockS3Client) DeleteObject(input *s3.DeleteObjectInput) (*s3.DeleteObjec
 
 var headObjectBucketName string
 var headObjectKey string
+
 func (m mockS3Client) WaitUntilObjectNotExists(input *s3.HeadObjectInput) error {
 	headObjectBucketName = *input.Bucket
 	headObjectKey = *input.Key
@@ -64,6 +68,7 @@ func (m mockS3Client) WaitUntilObjectNotExists(input *s3.HeadObjectInput) error 
 var listObjectsOutput s3.ListObjectsOutput
 var listObjectsBucketName string
 var listObjectsPrefix string
+
 func (m mockS3Client) ListObjects(input *s3.ListObjectsInput) (*s3.ListObjectsOutput, error) {
 	listObjectsBucketName = *input.Bucket
 	if input.Prefix != nil {
@@ -84,6 +89,7 @@ type mockUploader struct {
 
 var uploadBucketName string
 var uploadKey string
+
 func (m mockUploader) Upload(input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
 	uploadBucketName = *input.Bucket
 	uploadKey = *input.Key
@@ -102,6 +108,7 @@ type mockDownloader struct {
 
 var downloadBucketName string
 var downloadKey string
+
 func (m mockDownloader) Download(w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) (int64, error) {
 	downloadBucketName = *input.Bucket
 	downloadKey = *input.Key
@@ -124,7 +131,7 @@ func TestBucket(t *testing.T) {
 
 	// ChkBucket with bucket named k8s-snap
 	bucketName := "k8s-snap"
-	bu := s3.Bucket{Name:&bucketName}
+	bu := s3.Bucket{Name: &bucketName}
 	listBucketsOutput.SetBuckets([]*s3.Bucket{&bu})
 	found, _ = b.ChkBucket()
 	if !found {
@@ -186,14 +193,14 @@ func TestBucket(t *testing.T) {
 		t.Errorf("Error in list Object Prefix")
 	}
 	if err == nil {
-		t.Errorf("Error must be occured GetObjectInfo without list")
+		t.Errorf("Error must be occurred GetObjectInfo without list")
 	}
 
 	// Get file info
 	objKey := "GETINFO_FILENAME"
 	objTime := time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC)
 	objSize := int64(131072)
-	obj := s3.Object{Key:&objKey, LastModified:&objTime, Size:&objSize}
+	obj := s3.Object{Key: &objKey, LastModified: &objTime, Size: &objSize}
 	listObjectsOutput.SetContents([]*s3.Object{&obj})
 	objectInfo, err := b.GetObjectInfo("GETINFO_FILENAME")
 	if err != nil {

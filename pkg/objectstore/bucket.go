@@ -21,11 +21,16 @@ import (
 // Objectstore interfaces
 type Objectstore interface {
 	ChkBucket() (bool, error)
+	CreateBucket() error
 	Upload(file *os.File, filename string) error
 	Download(file *os.File, filename string) error
 	Delete(filename string) error
 	GetObjectInfo(filename string) (*ObjectInfo, error)
 	ListObjectInfo() ([]ObjectInfo, error)
+
+	Name() string
+	Endpoint() string
+	BucketName() string
 }
 
 // ObjectInfo retains snapshot object's info

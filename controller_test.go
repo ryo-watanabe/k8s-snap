@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/diff"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -21,8 +22,11 @@ import (
 	clustersnapshot "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 	informers "github.com/ryo-watanabe/k8s-snap/pkg/client/informers/externalversions"
 
-	"github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned/fake"
 	"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
+	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
+	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
+	clientset "github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned"
+	"github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned/fake"
 )
 
 var (
@@ -115,6 +119,17 @@ func TestSnapshot(t *testing.T) {
 			},
 			handleKey: "test1",
 		},
+		// 5:Mark Failed to InProgress snapshot and delete
+		Case{
+			snapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "InProgress"),
+			},
+			updatedSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "Failed"),
+				newConfiguredSnapshot("test1", "Failed"),
+			},
+			handleKey: "test1",
+		},
 	}
 
 	// Additional test data:
@@ -134,6 +149,9 @@ func TestSnapshot(t *testing.T) {
 	cases[4].updatedSnapshots[0].Spec.TTL.Duration = dur
 	cases[4].updatedSnapshots[0].Status.AvailableUntil = metav1.NewTime(cases[4].updatedSnapshots[0].ObjectMeta.CreationTimestamp.Add(dur))
 	cases[4].updatedSnapshots[0].Status.TTL.Duration = dur
+	// 5:Mark Failed to InProgress snapshot and delete
+	cases[5].updatedSnapshots[0].Status.Reason = "Controller stopped while taking the snapshot"
+	cases[5].updatedSnapshots[1].Status.Reason = "Controller stopped while taking the snapshot"
 
 	for _, c := range cases {
 		SnapshotTestCase(&c, t)
@@ -293,6 +311,26 @@ func newConfiguredRestore(name, phase string) *clustersnapshot.Restore {
 	}
 }
 
+// FakeCmd for fake command interface
+type mockCluster struct {
+	cluster.Cluster
+}
+
+// Snapshot for fake cluster interface
+func (c *mockCluster) Snapshot(snapshot *cbv1alpha1.Snapshot) error {
+	return nil
+}
+
+// UploadSnapshot for fake cluster interface
+func (c *mockCluster) UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket *objectstore.Bucket) error {
+	return nil
+}
+
+// Restore for fake cluster interface
+func (c *mockCluster) Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket *objectstore.Bucket) error {
+	return nil
+}
+
 //func (f *fixture) newController() (*Controller, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 func (f *fixture) newController() (*Controller, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 	f.client = fake.NewSimpleClientset(f.objects...)
@@ -309,7 +347,7 @@ func (f *fixture) newController() (*Controller, informers.SharedInformerFactory,
 		i.Clustersnapshot().V1alpha1().Snapshots(),
 		i.Clustersnapshot().V1alpha1().Restores(),
 		snapshotNamespace, true, true, true, false, false, maxRetryMin,
-		cluster.NewFakeClusterCmd(),
+		&mockCluster{},
 	)
 
 	c.snapshotsSynced = alwaysReady
@@ -551,101 +589,32 @@ func RestoreTestCase(c *Case, t *testing.T) {
 	}
 }
 
-/*
-func TestCreateSnapshot(t *testing.T) {
+func TestQueues(t *testing.T) {
 	f := newFixture(t)
 
-	// pre-existing snapshot resource
-	s1 := newConfiguredSnapshot("test1", "Completed")
-	f.snapshotLister = append(f.snapshotLister, s1)
-	f.objects = append(f.objects, s1)
-        // new snapshot resource
-	s2 := newConfiguredSnapshot("test2", "")
-	f.snapshotLister = append(f.snapshotLister, s2)
-	f.objects = append(f.objects, s2)
+	cntl, _, _ := f.newController()
 
-	c, i, k8sI := f.newController()
-
-	ex_snapshot := newConfiguredSnapshot("test2", "InQueue")
-        ex_snapshot.Spec.TTL.Duration, _ = time.ParseDuration("720h0m0s")
-	f.expectUpdateSnapshotAction(ex_snapshot)
-
-	f.initInformers(i, k8sI)
-	f.startInformers(i, k8sI)
-	f.runQueueOnly(c, getKey(ex_snapshot, t), "snapshots")
+	snap := newConfiguredSnapshot("test1", "")
+	cntl.enqueueSnapshot(snap)
+	cntl.processNextSnapshotItem(false)
 }
 
-func TestCreateSnapshotRFC3339(t *testing.T) {
+type bucketMock struct {
+	objectstore.Objectstore
+}
+
+func getBucketMock(namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (*objectstore.Objectstore, error) {
+	return bucketMock{}, nil
+}
+
+func TestBucket(t *testing.T) {
 	f := newFixture(t)
 
-        // new snapshot resource
-	s1 := newConfiguredSnapshot("test1", "")
-        s1.Spec.AvailableUntil.Time, _ = time.Parse(time.RFC3339, "2020-07-01T02:03:04Z")
-	f.snapshotLister = append(f.snapshotLister, s1)
-	f.objects = append(f.objects, s1)
+	cntl, _, _ := f.newController()
+	cntl.getBucket = getBucketMock
 
-	c, i, k8sI := f.newController()
-
-	ex_snapshot := newConfiguredSnapshot("test1", "InQueue")
-        ex_snapshot.Spec.AvailableUntil.Time = time.Date(2020, time.July, 1, 2, 3, 4, 0, time.UTC)
-	f.expectUpdateSnapshotAction(ex_snapshot)
-
-	f.initInformers(i, k8sI)
-	f.startInformers(i, k8sI)
-	f.runQueueOnly(c, getKey(ex_snapshot, t), "snapshots")
+	snap := newConfiguredSnapshot("test1", "")
+	cntl.deleteSnapshot(snap)
 }
-
-func TestInProgressAndCompletedSnapshot(t *testing.T) {
-	f := newFixture(t)
-
-	// pre-existing snapshot resource
-	s1 := newConfiguredSnapshot("test1", "Completed")
-	f.snapshotLister = append(f.snapshotLister, s1)
-	f.objects = append(f.objects, s1)
-        // new snapshot resource
-	s2 := newConfiguredSnapshot("test2", "InQueue")
-	f.snapshotLister = append(f.snapshotLister, s2)
-	f.objects = append(f.objects, s2)
-	// bucket config
-	b := newObjectstoreConfig()
-	f.objects = append(f.objects, b)
-	secret := newCloudCredentialSecret()
-	f.kubeobjects = append(f.kubeobjects, secret)
-
-	c, i, k8sI := f.newController()
-
-	ex_snapshot := newConfiguredSnapshot("test2", "InProgress")
-	f.expectUpdateSnapshotAction(ex_snapshot)
-	ex2_snapshot := newConfiguredSnapshot("test2", "Completed")
-	f.expectUpdateSnapshotAction(ex2_snapshot)
-
-	f.initInformers(i, k8sI)
-	f.startInformers(i, k8sI)
-	f.run(c, getKey(ex_snapshot, t), "snapshots")
-}
-
-func TestCreateRestore(t *testing.T) {
-	f := newFixture(t)
-
-	// pre-existing snapshot resource
-	s1 := newConfiguredRestore("test1", "Completed")
-	f.restoreLister = append(f.restoreLister, s1)
-	f.objects = append(f.objects, s1)
-        // new snapshot resource
-	s2 := newConfiguredRestore("test2", "")
-	f.restoreLister = append(f.restoreLister, s2)
-	f.objects = append(f.objects, s2)
-
-	c, i, k8sI := f.newController()
-
-	ex_restore := newConfiguredRestore("test2", "InQueue")
-        ex_restore.Spec.TTL.Duration, _ = time.ParseDuration("168h0m0s")
-	f.expectUpdateRestoreAction(ex_restore)
-
-	f.initInformers(i, k8sI)
-	f.startInformers(i, k8sI)
-	f.runQueueOnly(c, getKey(ex_restore, t), "restores")
-}
-*/
 
 func int32Ptr(i int32) *int32 { return &i }

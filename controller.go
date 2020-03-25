@@ -73,6 +73,7 @@ type Controller struct {
 	labels    map[string]string
 
 	clusterCmd cluster.Cluster
+	getBucket func(namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error)
 }
 
 // NewController returns a new controller
@@ -121,6 +122,7 @@ func NewController(
 			"controller": "k8s-snap-controller",
 		},
 		clusterCmd: clusterCmd,
+		getBucket: getBucketFunc,
 	}
 
 	klog.Info("Setting up event handlers")
@@ -170,20 +172,11 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 		klog.Fatalf("List Objectstore Config error : %s", err.Error())
 	}
 	for _, os := range osConfigs.Items {
-		// Credentials secret
-		cred, err := c.kubeclientset.CoreV1().Secrets(c.namespace).Get(os.Spec.CloudCredentialSecret, metav1.GetOptions{})
+
+		bucket, err := c.getBucket(c.namespace, os.ObjectMeta.Name, c.kubeclientset, c.cbclientset, c.insecure)
 		if err != nil {
-			klog.Fatalf("Get secret %s error : %s", os.Spec.CloudCredentialSecret, err.Error())
+			klog.Fatalf("Get bucket error for ObjectstoreConfig %s * %s", os.ObjectMeta.Name, err.Error())
 		}
-		bucket := objectstore.NewBucket(
-			os.ObjectMeta.Name,
-			string(cred.Data["accesskey"]),
-			string(cred.Data["secretkey"]),
-			os.Spec.Endpoint,
-			os.Spec.Region,
-			os.Spec.Bucket,
-			c.insecure,
-		)
 		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s", bucket.Name, bucket.Endpoint, bucket.BucketName)
 
 		found, err := bucket.ChkBucket()
@@ -248,4 +241,24 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 	klog.Info("Shutting down workers")
 
 	return nil
+}
+
+func getBucketFunc(namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error) {
+	// bucket
+	osConfig, err := client.ClustersnapshotV1alpha1().ObjectstoreConfigs(namespace).Get(
+		objectstoreConfig, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// cloud credentials secret
+	cred, err := kubeclient.CoreV1().Secrets(namespace).Get(
+		osConfig.Spec.CloudCredentialSecret, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	bucket := objectstore.NewBucket(osConfig.ObjectMeta.Name, string(cred.Data["accesskey"]),
+		string(cred.Data["secretkey"]), osConfig.Spec.Endpoint, osConfig.Spec.Region, osConfig.Spec.Bucket, insecure)
+
+	return bucket, nil
 }

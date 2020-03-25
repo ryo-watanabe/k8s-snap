@@ -39,15 +39,11 @@ func (c *Controller) getObjectList() ([]objectstore.ObjectInfo, error) {
 
 	for _, os := range osConfigs.Items {
 
-		// Credentials secret
-		cred, err := c.kubeclientset.CoreV1().Secrets(c.namespace).Get(os.Spec.CloudCredentialSecret, metav1.GetOptions{})
+		// Get bucket
+		bucket, err := c.getBucket(c.namespace, os.ObjectMeta.Name, c.kubeclientset, c.cbclientset, c.insecure)
 		if err != nil {
-			return nil, fmt.Errorf("Get secret %s error : %s", os.Spec.CloudCredentialSecret, err.Error())
+			fmt.Errorf("Get bucket error for ObjectstoreConfig %s * %s", os.ObjectMeta.Name, err.Error())
 		}
-
-		// Set bucket
-		bucket := objectstore.NewBucket(os.ObjectMeta.Name, string(cred.Data["accesskey"]),
-			string(cred.Data["secretkey"]), os.Spec.Endpoint, os.Spec.Region, os.Spec.Bucket, c.insecure)
 
 		// Append objects list
 		objList, err := bucket.ListObjectInfo()
@@ -65,7 +61,7 @@ func (c *Controller) restoreSnapshotFromObject(object objectstore.ObjectInfo) er
 	// Download object
 	snapshotFile, err := os.Create("/tmp/" + object.Name)
 	defer snapshotFile.Close()
-	bucket, err := c.getBucket(object.BucketConfigName)
+	bucket, err := c.getBucket(c.namespace, object.BucketConfigName, c.kubeclientset, c.cbclientset, c.insecure)
 	if err != nil {
 		return err
 	}
@@ -253,7 +249,7 @@ func (c *Controller) syncObjects(deleteOrphanObjects, restoreOrphanedSnapshots, 
 	if deleteOrphanObjects {
 		for _, object := range orphanObjects {
 			slog.Infof("Deleting orphan object %s", object.Name)
-			bucket, err := c.getBucket(object.BucketConfigName)
+			bucket, err := c.getBucket(c.namespace, object.BucketConfigName, c.kubeclientset, c.cbclientset, c.insecure)
 			if err != nil {
 				return err
 			}

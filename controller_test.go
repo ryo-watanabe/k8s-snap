@@ -609,17 +609,26 @@ func (b bucketMock) Delete(filename string) error {
 	return nil
 }
 
+var objectInfo *objectstore.ObjectInfo
+func (b bucketMock) ListObjectInfo() ([]objectstore.ObjectInfo, error) {
+	return []objectstore.ObjectInfo{*objectInfo}, nil
+}
+
 func getBucketMock(namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error) {
 	return bucketMock{}, nil
 }
 
 func TestBucket(t *testing.T) {
-	f := newFixture(t)
 
+	snap := newConfiguredSnapshot("test1", "Completed")
+	f := newFixture(t)
+	f.objects = append(f.objects, newObjectstoreConfig())
+	f.kubeobjects = append(f.kubeobjects, newCloudCredentialSecret())
+	f.objects = append(f.objects, snap)
 	cntl, _, _ := f.newController()
 	cntl.getBucket = getBucketMock
 
-	snap := newConfiguredSnapshot("test1", "")
+	// Delete object
 	cntl.deleteSnapshot(snap)
 	if deleteFilename != "test1.tgz" {
 		t.Errorf("Error in delete file name")
@@ -631,10 +640,31 @@ func TestBucket(t *testing.T) {
 		t.Errorf("Error in do nothing in syncObject : %s", err.Error())
 	}
 
-	// syncObjects
+	// syncObjects no orphans
+	objectInfo = &objectstore.ObjectInfo{
+		Name: "test1.tgz",
+		Size: int64(131072),
+		Timestamp: time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
+		BucketConfigName: "bucket",
+	}
 	err = cntl.syncObjects(true, false, false)
 	if err != nil {
 		t.Errorf("Error in syncObject : %s", err.Error())
+	}
+
+	// syncObjects orphan object
+	objectInfo = &objectstore.ObjectInfo{
+		Name: "orphan.tgz",
+		Size: int64(131072),
+		Timestamp: time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
+		BucketConfigName: "bucket",
+	}
+	err = cntl.syncObjects(true, false, false)
+	if err != nil {
+		t.Errorf("Error in syncObject : %s", err.Error())
+	}
+	if deleteFilename != "orphan.tgz" {
+		t.Errorf("Error in delete orphan object")
 	}
 }
 

@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
-
 	//"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
 	//"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
 )

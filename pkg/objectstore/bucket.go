@@ -56,17 +56,17 @@ type Bucket struct {
 }
 
 // GetName returns bucket's Name
-func (b *Bucket)GetName() string {
+func (b *Bucket) GetName() string {
 	return b.Name
 }
 
-// GetEndpoint returns bucket's Name
-func (b *Bucket)GetEndpoint() string {
+// GetEndpoint returns bucket's Endpoint
+func (b *Bucket) GetEndpoint() string {
 	return b.Endpoint
 }
 
-// GetName returns bucket's Name
-func (b *Bucket)GetBucketName() string {
+// GetBacketName returns bucket's BacketName
+func (b *Bucket) GetBucketName() string {
 	return b.BucketName
 }
 

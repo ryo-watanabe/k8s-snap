@@ -22,11 +22,11 @@ import (
 	clustersnapshot "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 	informers "github.com/ryo-watanabe/k8s-snap/pkg/client/informers/externalversions"
 
-	"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
 	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
-	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
 	clientset "github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned"
 	"github.com/ryo-watanabe/k8s-snap/pkg/client/clientset/versioned/fake"
+	"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
+	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
 )
 
 var (
@@ -300,9 +300,9 @@ func newConfiguredRestore(name, phase string) *clustersnapshot.Restore {
 			Namespace: metav1.NamespaceDefault,
 		},
 		Spec: clustersnapshot.RestoreSpec{
-			ClusterName:  name,
-			Kubeconfig:   "kubeconfig",
-			SnapshotName: "snapshot",
+			ClusterName:           name,
+			Kubeconfig:            "kubeconfig",
+			SnapshotName:          "snapshot",
 			RestorePreferenceName: "restorePreference",
 		},
 		Status: clustersnapshot.RestoreStatus{
@@ -470,8 +470,7 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 func filterInformerActions(actions []core.Action) []core.Action {
 	ret := []core.Action{}
 	for _, action := range actions {
-		if action.GetNamespace() == snapshotNamespace && (
-			action.Matches("get", "objectstoreconfigs") ||
+		if action.GetNamespace() == snapshotNamespace && (action.Matches("get", "objectstoreconfigs") ||
 			action.Matches("get", "restorepreferences") ||
 			action.Matches("list", "snapshots") ||
 			action.Matches("get", "snapshots") ||
@@ -604,12 +603,14 @@ type bucketMock struct {
 }
 
 var deleteFilename string
+
 func (b bucketMock) Delete(filename string) error {
 	deleteFilename = filename
 	return nil
 }
 
 var objectInfo *objectstore.ObjectInfo
+
 func (b bucketMock) ListObjectInfo() ([]objectstore.ObjectInfo, error) {
 	return []objectstore.ObjectInfo{*objectInfo}, nil
 }
@@ -642,9 +643,9 @@ func TestBucket(t *testing.T) {
 
 	// syncObjects no orphans
 	objectInfo = &objectstore.ObjectInfo{
-		Name: "test1.tgz",
-		Size: int64(131072),
-		Timestamp: time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
+		Name:             "test1.tgz",
+		Size:             int64(131072),
+		Timestamp:        time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
 		BucketConfigName: "bucket",
 	}
 	err = cntl.syncObjects(true, false, false)
@@ -654,9 +655,9 @@ func TestBucket(t *testing.T) {
 
 	// syncObjects orphan object
 	objectInfo = &objectstore.ObjectInfo{
-		Name: "orphan.tgz",
-		Size: int64(131072),
-		Timestamp: time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
+		Name:             "orphan.tgz",
+		Size:             int64(131072),
+		Timestamp:        time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
 		BucketConfigName: "bucket",
 	}
 	err = cntl.syncObjects(true, false, false)

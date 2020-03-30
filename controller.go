@@ -73,7 +73,7 @@ type Controller struct {
 	labels    map[string]string
 
 	clusterCmd cluster.Cluster
-	getBucket func(namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error)
+	getBucket  func(namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error)
 }
 
 // NewController returns a new controller
@@ -122,7 +122,7 @@ func NewController(
 			"controller": "k8s-snap-controller",
 		},
 		clusterCmd: clusterCmd,
-		getBucket: getBucketFunc,
+		getBucket:  getBucketFunc,
 	}
 
 	klog.Info("Setting up event handlers")

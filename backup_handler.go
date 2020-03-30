@@ -123,7 +123,7 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 			}
 			return nil
 		}
-		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s", bucket.Name, bucket.Endpoint, bucket.BucketName)
+		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s", bucket.GetName(), bucket.GetEndpoint(), bucket.GetBucketName())
 
 		// do snapshot with backoff retry
 		b := backoff.NewExponentialBackOff()

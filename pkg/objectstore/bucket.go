@@ -28,9 +28,9 @@ type Objectstore interface {
 	GetObjectInfo(filename string) (*ObjectInfo, error)
 	ListObjectInfo() ([]ObjectInfo, error)
 
-	Name() string
-	Endpoint() string
-	BucketName() string
+	GetName() string
+	GetEndpoint() string
+	GetBucketName() string
 }
 
 // ObjectInfo retains snapshot object's info
@@ -53,6 +53,21 @@ type Bucket struct {
 	newS3func         func(*session.Session) s3iface.S3API
 	newUploaderfunc   func(*session.Session) s3manageriface.UploaderAPI
 	newDownloaderfunc func(*session.Session) s3manageriface.DownloaderAPI
+}
+
+// GetName returns bucket's Name
+func (b *Bucket)GetName() string {
+	return b.Name
+}
+
+// GetEndpoint returns bucket's Name
+func (b *Bucket)GetEndpoint() string {
+	return b.Endpoint
+}
+
+// GetName returns bucket's Name
+func (b *Bucket)GetBucketName() string {
+	return b.BucketName
 }
 
 // NewBucket returns new Bucket

@@ -373,7 +373,7 @@ func objectstorePermError(error string) bool {
 }
 
 // UploadSnapshot uploads a snapshot tgz file to the bucket
-func UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket *objectstore.Bucket) error {
+func UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket objectstore.Objectstore) error {
 
 	// Snapshot log
 	blog := utils.NewNamedLog("snapshot:" + snapshot.ObjectMeta.Name)

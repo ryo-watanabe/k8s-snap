@@ -172,7 +172,7 @@ func writeFile(filepath string, tarReader *tar.Reader) error {
 }
 
 // Restore k8s resources
-func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket *objectstore.Bucket) error {
+func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket objectstore.Objectstore) error {
 
 	// Restore log
 	rlog := utils.NewNamedLog("restore:" + restore.ObjectMeta.Name)

@@ -177,7 +177,7 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 		if err != nil {
 			klog.Fatalf("Get bucket error for ObjectstoreConfig %s * %s", os.ObjectMeta.Name, err.Error())
 		}
-		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s", bucket.Name, bucket.Endpoint, bucket.BucketName)
+		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s", bucket.GetName(), bucket.GetEndpoint(), bucket.GetBucketName())
 
 		found, err := bucket.ChkBucket()
 		if err != nil {
@@ -185,13 +185,13 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 		}
 		if !found {
 			if c.createbucket {
-				klog.Infof("Creating bucket %s", bucket.BucketName)
+				klog.Infof("Creating bucket %s", bucket.GetBucketName())
 				err = bucket.CreateBucket()
 				if err != nil {
 					klog.Fatalf("Create bucket error : %s", err.Error())
 				}
 			} else {
-				klog.Fatalf("Bucket %s not found", bucket.BucketName)
+				klog.Fatalf("Bucket %s not found", bucket.GetBucketName())
 			}
 		}
 
@@ -199,7 +199,7 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 		if err != nil {
 			klog.Fatalf("List objects error : %s", err.Error())
 		}
-		klog.Infof("-- Objects in bucket %s:", bucket.BucketName)
+		klog.Infof("-- Objects in bucket %s:", bucket.GetBucketName())
 		for _, obj := range objList {
 			klog.Infof("--- filename:%s size:%d timestamp:%s", obj.Name, obj.Size, obj.Timestamp)
 		}

@@ -322,12 +322,12 @@ func (c *mockCluster) Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 }
 
 // UploadSnapshot for fake cluster interface
-func (c *mockCluster) UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket *objectstore.Bucket) error {
+func (c *mockCluster) UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket objectstore.Objectstore) error {
 	return nil
 }
 
 // Restore for fake cluster interface
-func (c *mockCluster) Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket *objectstore.Bucket) error {
+func (c *mockCluster) Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket objectstore.Objectstore) error {
 	return nil
 }
 
@@ -603,7 +603,13 @@ type bucketMock struct {
 	objectstore.Objectstore
 }
 
-func getBucketMock(namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (*objectstore.Objectstore, error) {
+var deleteFilename string
+func (b bucketMock) Delete(filename string) error {
+	deleteFilename = filename
+	return nil
+}
+
+func getBucketMock(namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error) {
 	return bucketMock{}, nil
 }
 
@@ -615,6 +621,21 @@ func TestBucket(t *testing.T) {
 
 	snap := newConfiguredSnapshot("test1", "")
 	cntl.deleteSnapshot(snap)
+	if deleteFilename != "test1.tgz" {
+		t.Errorf("Error in delete file name")
+	}
+
+	// Do nothing in syncObjects
+	err := cntl.syncObjects(false, false, false)
+	if err != nil {
+		t.Errorf("Error in do nothing in syncObject : %s", err.Error())
+	}
+
+	// syncObjects
+	err = cntl.syncObjects(true, false, false)
+	if err != nil {
+		t.Errorf("Error in syncObject : %s", err.Error())
+	}
 }
 
 func int32Ptr(i int32) *int32 { return &i }

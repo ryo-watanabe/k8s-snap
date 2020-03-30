@@ -65,7 +65,7 @@ func (b *Bucket) GetEndpoint() string {
 	return b.Endpoint
 }
 
-// GetBacketName returns bucket's BacketName
+// GetBucketName returns bucket's BacketName
 func (b *Bucket) GetBucketName() string {
 	return b.BucketName
 }

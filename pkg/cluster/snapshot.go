@@ -19,6 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
 	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
@@ -100,18 +102,33 @@ func apiPermError(error string) bool {
 // Snapshot k8s resources
 func Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 
-	// Snapshot log
-	blog := utils.NewNamedLog("snapshot:" + snapshot.ObjectMeta.Name)
-
 	// kubeClient for exxternal cluster.
 	kubeClient, err := buildKubeClient(snapshot.Spec.Kubeconfig)
 	if err != nil {
 		return err
 	}
 
+	// DynamicClient for exxternal cluster.
+	dynamicClient, err := buildDynamicClient(snapshot.Spec.Kubeconfig)
+	if err != nil {
+		return err
+	}
+
+	return snapshotWithClient(snapshot, kubeClient, dynamicClient)
+}
+
+// Snapshot k8s resources
+func snapshotWithClient(
+	snapshot *cbv1alpha1.Snapshot,
+	kubeClient kubernetes.Interface,
+	dynamicClient dynamic.Interface) error {
+
+	// Snapshot log
+	blog := utils.NewNamedLog("snapshot:" + snapshot.ObjectMeta.Name)
+
 	discoveryClient := kubeClient.Discovery()
 
-	spr, err := discoveryClient.ServerPreferredResources()
+	spr, err := discoveryClient.ServerResources()
 	if err != nil {
 
 		// This is the first time that k8s api of  target cluster accessed
@@ -122,12 +139,6 @@ func Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 		return fmt.Errorf("Get server preferred resources failed : %s", err.Error())
 	}
 	resources := discovery.FilteredBy(discovery.ResourcePredicateFunc(matchVerbs), spr)
-
-	// DynamicClient for exxternal cluster.
-	dynamicClient, err := buildDynamicClient(snapshot.Spec.Kubeconfig)
-	if err != nil {
-		return err
-	}
 
 	blog.Info("Backing up resources")
 

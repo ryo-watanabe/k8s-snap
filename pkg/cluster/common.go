@@ -83,7 +83,7 @@ func buildDynamicClient(kubeconfig string) (dynamic.Interface, error) {
 }
 
 // ConfigMapMarker creates and deletes a config map to get a marker for Resource Version
-func ConfigMapMarker(kubeClient *kubernetes.Clientset, name string) (*corev1.ConfigMap, error) {
+func ConfigMapMarker(kubeClient kubernetes.Interface, name string) (*corev1.ConfigMap, error) {
 	configMap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",

@@ -5,6 +5,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	discoveryfake "k8s.io/client-go/discovery/fake"
@@ -38,6 +39,7 @@ func newConfiguredSecret() *corev1.Secret {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cloudCredentialSecret",
 			Namespace: metav1.NamespaceDefault,
+			SelfLink:  "/api/v1/namespaces/default/secrets/cloudCredentialSecret",
 		},
 		Data: map[string][]byte{
 			"accesskey": []byte("YWNjZXNza2V5"),
@@ -47,6 +49,7 @@ func newConfiguredSecret() *corev1.Secret {
 }
 
 var kubeobjects []runtime.Object
+var ukubeobjects []runtime.Object
 
 func TestSnapshot(t *testing.T) {
 
@@ -70,12 +73,15 @@ func TestSnapshot(t *testing.T) {
 
 	sch := runtime.NewScheme()
 	sch.AddKnownTypeWithName(schema.GroupVersionKind{Version:"v1", Kind:"Secret"}, secret)
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(sch)
+	mapsecret, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(secret)
+	usecret := &unstructured.Unstructured{Object: mapsecret}
+	ukubeobjects = append(ukubeobjects, usecret.DeepCopyObject())
+	dynamicClient := dynamicfake.NewSimpleDynamicClient(sch, ukubeobjects...)
 
 	snap := newConfiguredSnapshot("test1", "InProgress")
 
 	err := snapshotWithClient(snap, kubeClient, dynamicClient)
 	if err != nil {
-		t.Error("Error in snapshot")
+		t.Errorf("Error in snapshot : %s", err.Error())
 	}
 }

@@ -2,17 +2,22 @@ package cluster
 
 import (
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/watch"
 	discoveryfake "k8s.io/client-go/discovery/fake"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
+	core "k8s.io/client-go/testing"
 
 	clustersnapshot "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
@@ -73,6 +78,37 @@ func (b bucketMock) GetObjectInfo(filename string) (*objectstore.ObjectInfo, err
 	return objectInfo, nil
 }
 
+var intResourceVersion uint64
+var dynamicTracker core.ObjectTracker
+
+func newDynamicClient(scheme *runtime.Scheme, objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
+	// In order to use List with this client, you have to have the v1.List registered in your scheme. Neat thing though
+	// it does NOT have to be the *same* list
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "fake-dynamic-client-group", Version: "v1", Kind: "List"}, &unstructured.UnstructuredList{})
+
+	codecs := serializer.NewCodecFactory(scheme)
+	dynamicTracker = core.NewObjectTracker(scheme, codecs.UniversalDecoder())
+	for _, obj := range objects {
+		if err := dynamicTracker.Add(obj); err != nil {
+			panic(err)
+		}
+	}
+
+	cs := &dynamicfake.FakeDynamicClient{}
+	cs.AddReactor("*", "*", core.ObjectReaction(dynamicTracker))
+	cs.AddWatchReactor("*", func(action core.Action) (handled bool, ret watch.Interface, err error) {
+		gvr := action.GetResource()
+		ns := action.GetNamespace()
+		watch, err := dynamicTracker.Watch(gvr, ns)
+		if err != nil {
+			return false, nil, err
+		}
+		return true, watch, nil
+	})
+
+	return cs
+}
+
 func TestSnapshot(t *testing.T) {
 
 	secret := newConfiguredSecret()
@@ -110,11 +146,41 @@ func TestSnapshot(t *testing.T) {
 	mapsecret, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(secret)
 	usecret := &unstructured.Unstructured{Object: mapsecret}
 	ukubeobjects = append(ukubeobjects, usecret.DeepCopyObject())
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(sch, ukubeobjects...)
+	dynamicClient := newDynamicClient(sch, ukubeobjects...)
+
+	kubeClient.Fake.PrependReactor("create", "configmaps", func(action core.Action) (bool, runtime.Object, error) {
+		t.Log("Create ConfigMap called")
+		obj := action.(core.CreateAction).GetObject()
+		accessor, _ := meta.Accessor(obj)
+		intResourceVersion++
+		accessor.SetResourceVersion(strconv.FormatUint(intResourceVersion, 10))
+		mapObject, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+		uObject := &unstructured.Unstructured{Object: mapObject}
+		newAction := core.NewCreateAction(action.GetResource(), action.GetNamespace(), uObject.DeepCopyObject()).DeepCopy()
+		dynamicClient.Fake.Invokes(newAction, uObject.DeepCopyObject())
+		return false, obj, nil
+	})
+	kubeClient.Fake.PrependReactor("delete", "configmaps", func(action core.Action) (bool, runtime.Object, error) {
+		t.Log("Delete ConfigMap called")
+		name := action.(core.DeleteAction).GetName()
+		obj, _ := dynamicTracker.Get(action.GetResource(), action.GetNamespace(), name)
+		accessor, _ := meta.Accessor(obj)
+		intResourceVersion++
+		accessor.SetResourceVersion(strconv.FormatUint(intResourceVersion, 10))
+		dynamicTracker.Update(action.GetResource(), obj, action.GetNamespace())
+		//newAction := core.NewDeleteAction(action.GetResource(), action.GetNamespace(), name).DeepCopy()
+		dynamicClient.Fake.Invokes(action, nil)
+		return false, nil, nil
+	})
+	//dynamicClient.Fake.PrependWatchReactor("*", func(action core.Action) (bool, watch.Interface, error) {
+	//	t.Logf("Watch %s called", action.GetResource().Resource)
+	//	return false, nil, nil
+	//})
 
 	snap := newConfiguredSnapshot("test1", "InProgress")
 
 	// Get a snapshot
+	intResourceVersion = 1
 	err := snapshotWithClient(snap, kubeClient, dynamicClient)
 	if err != nil {
 		t.Errorf("Error in snapshotWithClient : %s", err.Error())

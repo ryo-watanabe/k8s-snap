@@ -222,11 +222,12 @@ func snapshotWithClient(
 	blog.Infof("Start resource version : %s", startRV)
 	blog.Infof("End resource version   : %s", endRV)
 
-	// Stop watch resources
+	// Stop watch resources and wait few seconds for running goroutines exiting
 	stopWatch(eventsWatch)
+	time.Sleep(3 * time.Second)
 
 	// Sync resources
-	blog.Info("Syncing modified resources:")
+	blog.Infof("Syncing modified resources: %d events", len(watchEventList))
 	for _, e := range watchEventList {
 		item, ok := e.Object.(*unstructured.Unstructured)
 		if ok {

@@ -78,16 +78,16 @@ func (b bucketMock) GetObjectInfo(filename string) (*objectstore.ObjectInfo, err
 	return objectInfo, nil
 }
 
-var intResourceVersion uint64
-var dynamicTracker core.ObjectTracker
+//var intResourceVersion uint64
+var dynamicTracker ObjectTracker
 
-func newDynamicClient(scheme *runtime.Scheme, objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
+func newDynamicClient(scheme *runtime.Scheme, rv uint64, objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
 	// In order to use List with this client, you have to have the v1.List registered in your scheme. Neat thing though
 	// it does NOT have to be the *same* list
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "fake-dynamic-client-group", Version: "v1", Kind: "List"}, &unstructured.UnstructuredList{})
 
 	codecs := serializer.NewCodecFactory(scheme)
-	dynamicTracker = core.NewObjectTracker(scheme, codecs.UniversalDecoder())
+	dynamicTracker = NewObjectTracker(scheme, codecs.UniversalDecoder(), rv)
 	for _, obj := range objects {
 		if err := dynamicTracker.Add(obj); err != nil {
 			panic(err)
@@ -146,41 +146,28 @@ func TestSnapshot(t *testing.T) {
 	mapsecret, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(secret)
 	usecret := &unstructured.Unstructured{Object: mapsecret}
 	ukubeobjects = append(ukubeobjects, usecret.DeepCopyObject())
-	dynamicClient := newDynamicClient(sch, ukubeobjects...)
+	dynamicClient := newDynamicClient(sch, 1, ukubeobjects...)
 
-	kubeClient.Fake.PrependReactor("create", "configmaps", func(action core.Action) (bool, runtime.Object, error) {
-		t.Log("Create ConfigMap called")
+	kubeClient.Fake.PrependReactor("create", "*", func(action core.Action) (bool, runtime.Object, error) {
+		t.Logf("Create %s called", action.GetResource().Resource)
 		obj := action.(core.CreateAction).GetObject()
-		accessor, _ := meta.Accessor(obj)
-		intResourceVersion++
-		accessor.SetResourceVersion(strconv.FormatUint(intResourceVersion, 10))
 		mapObject, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 		uObject := &unstructured.Unstructured{Object: mapObject}
 		newAction := core.NewCreateAction(action.GetResource(), action.GetNamespace(), uObject.DeepCopyObject()).DeepCopy()
 		dynamicClient.Fake.Invokes(newAction, uObject.DeepCopyObject())
+		accessor, _ := meta.Accessor(obj)
+		accessor.SetResourceVersion(strconv.FormatUint(dynamicTracker.GetResourceVersion(), 10))
 		return false, obj, nil
 	})
-	kubeClient.Fake.PrependReactor("delete", "configmaps", func(action core.Action) (bool, runtime.Object, error) {
-		t.Log("Delete ConfigMap called")
-		name := action.(core.DeleteAction).GetName()
-		obj, _ := dynamicTracker.Get(action.GetResource(), action.GetNamespace(), name)
-		accessor, _ := meta.Accessor(obj)
-		intResourceVersion++
-		accessor.SetResourceVersion(strconv.FormatUint(intResourceVersion, 10))
-		dynamicTracker.Update(action.GetResource(), obj, action.GetNamespace())
-		//newAction := core.NewDeleteAction(action.GetResource(), action.GetNamespace(), name).DeepCopy()
+	kubeClient.Fake.PrependReactor("delete", "*", func(action core.Action) (bool, runtime.Object, error) {
+		t.Logf("Delete ConfigMap called")
 		dynamicClient.Fake.Invokes(action, nil)
 		return false, nil, nil
 	})
-	//dynamicClient.Fake.PrependWatchReactor("*", func(action core.Action) (bool, watch.Interface, error) {
-	//	t.Logf("Watch %s called", action.GetResource().Resource)
-	//	return false, nil, nil
-	//})
 
 	snap := newConfiguredSnapshot("test1", "InProgress")
 
 	// Get a snapshot
-	intResourceVersion = 1
 	err := snapshotWithClient(snap, kubeClient, dynamicClient)
 	if err != nil {
 		t.Errorf("Error in snapshotWithClient : %s", err.Error())

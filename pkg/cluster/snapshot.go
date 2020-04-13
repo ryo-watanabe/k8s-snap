@@ -32,24 +32,6 @@ func matchVerbs(groupVersion string, r *metav1.APIResource) bool {
 	return discovery.SupportsAllVerbs{Verbs: []string{"list", "create", "get", "delete"}}.Match(groupVersion, r)
 }
 
-func makeResourcePath(snapshotName, group, version, resourceName, namespace, name string) string {
-
-	// Namespace resources stored on top level.
-	if resourceName == "namespaces" {
-		return filepath.Join(snapshotName, "namespaces", name)
-	}
-
-	// Other resources stored same as api path.
-	nspath := ""
-	if namespace != "" {
-		nspath = "namespaces"
-	}
-	if group == "" {
-		return filepath.Join(snapshotName, "api", version, nspath, namespace, resourceName, name)
-	}
-	return filepath.Join(snapshotName, "apis", group, version, nspath, namespace, resourceName, name)
-}
-
 func isOlderValidResourceVersion(rv, refrv string) bool {
 	irv, err := strconv.ParseInt(rv, 10, 64)
 	if err != nil {
@@ -102,13 +84,13 @@ func apiPermError(error string) bool {
 // Snapshot k8s resources
 func Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 
-	// kubeClient for exxternal cluster.
+	// kubeClient for external cluster.
 	kubeClient, err := buildKubeClient(snapshot.Spec.Kubeconfig)
 	if err != nil {
 		return err
 	}
 
-	// DynamicClient for exxternal cluster.
+	// DynamicClient for external cluster.
 	dynamicClient, err := buildDynamicClient(snapshot.Spec.Kubeconfig)
 	if err != nil {
 		return err

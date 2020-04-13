@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
 	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
@@ -173,6 +174,46 @@ func writeFile(filepath string, tarReader *tar.Reader) error {
 
 // Restore k8s resources
 func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket objectstore.Objectstore) error {
+	// download snapshot tgz
+	err := downloadSnapshot(restore, bucket)
+	if err != nil {
+		return err
+	}
+
+	// kubeClient for external cluster.
+	kubeClient, err := buildKubeClient(restore.Spec.Kubeconfig)
+	if err != nil {
+		return err
+	}
+
+	// DynamicClient for external cluster.
+	dynamicClient, err := buildDynamicClient(restore.Spec.Kubeconfig)
+	if err != nil {
+		return err
+	}
+
+	return restoreResources(restore, pref, kubeClient, dynamicClient)
+}
+
+func downloadSnapshot(restore *cbv1alpha1.Restore, bucket objectstore.Objectstore) error {
+	// Restore log
+	rlog := utils.NewNamedLog("restore:" + restore.ObjectMeta.Name)
+
+	// Download
+	rlog.Infof("Downloading file %s", restore.Spec.SnapshotName+".tgz")
+	snapshotFile, err := os.Create("/tmp/" + restore.Spec.SnapshotName + ".tgz")
+	defer snapshotFile.Close()
+	if err != nil {
+		return err
+	}
+	return bucket.Download(snapshotFile, restore.Spec.SnapshotName+".tgz")
+}
+
+func restoreResources(
+	restore *cbv1alpha1.Restore,
+	pref *cbv1alpha1.RestorePreference,
+	kubeClient kubernetes.Interface,
+	dynamicClient dynamic.Interface) error {
 
 	// Restore log
 	rlog := utils.NewNamedLog("restore:" + restore.ObjectMeta.Name)
@@ -192,18 +233,8 @@ func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bu
 	restore.Status.AlreadyExisted = nil
 	restore.Status.Failed = nil
 
-	// Download
-	rlog.Infof("Downloading file %s", restore.Spec.SnapshotName+".tgz")
-	snapshotFile, err := os.Create("/tmp/" + restore.Spec.SnapshotName + ".tgz")
-	defer snapshotFile.Close()
-	err = bucket.Download(snapshotFile, restore.Spec.SnapshotName+".tgz")
-	if err != nil {
-		return err
-	}
-	snapshotFile.Close()
-
 	// Read tar.gz
-	snapshotFile, err = os.Open("/tmp/" + restore.Spec.SnapshotName + ".tgz")
+	snapshotFile, err := os.Open("/tmp/" + restore.Spec.SnapshotName + ".tgz")
 	if err != nil {
 		return err
 	}
@@ -258,18 +289,6 @@ func Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bu
 				return err
 			}
 		}
-	}
-
-	// kubeClient for exxternal cluster.
-	kubeClient, err := buildKubeClient(restore.Spec.Kubeconfig)
-	if err != nil {
-		return err
-	}
-
-	// DynamicClient for external cluster.
-	dynamicClient, err := buildDynamicClient(restore.Spec.Kubeconfig)
-	if err != nil {
-		return err
 	}
 
 	// Initialize preference

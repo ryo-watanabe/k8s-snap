@@ -190,11 +190,13 @@ func (t *tracker) Add(obj runtime.Object) error {
 	}
 	objMeta, err := meta.Accessor(obj)
 	if err != nil {
-		return err
+		//return err
+		return fmt.Errorf("Getting accessor : %s", err.Error())
 	}
 	gvks, _, err := t.scheme.ObjectKinds(obj)
 	if err != nil {
-		return err
+		//return err
+		return fmt.Errorf("Getting gvks : %s", err.Error())
 	}
 
 	if partial, ok := obj.(*metav1.PartialObjectMetadata); ok && len(partial.TypeMeta.APIVersion) > 0 {
@@ -218,7 +220,8 @@ func (t *tracker) Add(obj runtime.Object) error {
 
 		err := t.add(gvr, obj, objMeta.GetNamespace(), false)
 		if err != nil {
-			return err
+			//return err
+			return fmt.Errorf("Adding object : %s", err.Error())
 		}
 	}
 	return nil

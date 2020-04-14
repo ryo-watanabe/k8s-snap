@@ -331,7 +331,7 @@ func restoreResources(
 	}
 	// Restore apps
 	if p.isIn("App") {
-		klog.Info("Restore Apps :")
+		rlog.Info("Restore Apps :")
 		err = restoreDir(dir, "App", dynamicClient, p, restore, rlog)
 		if err != nil {
 			return err

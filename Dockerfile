@@ -11,7 +11,7 @@ RUN curl -sL https://github.com/golang/dep/releases/download/v0.5.4/dep-linux-am
 ADD . .
 
 RUN dep ensure -v && \
-    CGO_ENABLED=0 go build
+    CGO_ENABLED=0 go build -ldflags "-X main.version=$APP_VERSION -X main.revision=$APP_REVISION"
 
 FROM alpine
 

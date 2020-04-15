@@ -1,5 +1,8 @@
 FROM golang:1.11.5-alpine as builder
 
+ARG APP_VERSION=undef
+ARG APP_REVISION=undef
+
 WORKDIR /go/src/github.com/ryo-watanabe/k8s-snap/
 
 RUN apk --no-cache add curl tar git ca-certificates && \

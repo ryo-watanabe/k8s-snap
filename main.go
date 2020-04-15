@@ -46,6 +46,8 @@ var (
 	insecure                bool
 	createbucket            bool
 	maxretryelaspsedminutes int
+	version                 string
+	revision                string
 )
 
 func main() {
@@ -70,7 +72,7 @@ func main() {
 	klog.InitFlags(nil)
 	flag.Set("logtostderr", "true")
 	flag.Parse()
-	klog.Info("Set logs output to stderr.")
+	klog.Infof("k8s-snap version:%s revision:%s", version, revision)
 	klog.Flush()
 
 	// set up signals so we handle the first shutdown signal gracefully

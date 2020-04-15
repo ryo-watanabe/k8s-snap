@@ -71,8 +71,13 @@ func (c *Controller) restoreSnapshotFromObject(object objectstore.ObjectInfo) er
 	}
 	snapshotFile.Close()
 
+	return c.restoreSnapshotFromObjectFile(object)
+}
+
+func (c *Controller) restoreSnapshotFromObjectFile(object objectstore.ObjectInfo) error {
+
 	// Read tar.gz
-	snapshotFile, err = os.Open("/tmp/" + object.Name)
+	snapshotFile, err := os.Open("/tmp/" + object.Name)
 	if err != nil {
 		return err
 	}

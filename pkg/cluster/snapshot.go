@@ -96,11 +96,11 @@ func Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 		return err
 	}
 
-	return snapshotWithClient(snapshot, kubeClient, dynamicClient)
+	return SnapshotWithClient(snapshot, kubeClient, dynamicClient)
 }
 
 // Snapshot k8s resources
-func snapshotWithClient(
+func SnapshotWithClient(
 	snapshot *cbv1alpha1.Snapshot,
 	kubeClient kubernetes.Interface,
 	dynamicClient dynamic.Interface) error {

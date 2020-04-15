@@ -24,6 +24,9 @@ import (
 	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
 )
 
+var kubeobjects []runtime.Object
+var ukubeobjects []runtime.Object
+
 func TestCluster(t *testing.T) {
 
 	// Define API Resources
@@ -123,7 +126,7 @@ func TestCluster(t *testing.T) {
 	snap := newConfiguredSnapshot("test1", "InProgress")
 
 	// TEST1 : Get a snapshot
-	err := snapshotWithClient(snap, kubeClient, dynamicClient)
+	err := SnapshotWithClient(snap, kubeClient, dynamicClient)
 	if err != nil {
 		t.Errorf("Error in snapshotWithClient : %s", err.Error())
 	}
@@ -268,9 +271,6 @@ func chkResourceList(t *testing.T, res, ref []string) {
 }
 
 // Mock bucket
-
-var kubeobjects []runtime.Object
-var ukubeobjects []runtime.Object
 
 type bucketMock struct {
 	objectstore.Objectstore

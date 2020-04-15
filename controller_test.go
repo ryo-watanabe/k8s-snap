@@ -2,6 +2,7 @@ package main
 
 import (
 	//"fmt"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -603,14 +604,18 @@ type bucketMock struct {
 }
 
 var deleteFilename string
-
 func (b bucketMock) Delete(filename string) error {
 	deleteFilename = filename
 	return nil
 }
 
-var objectInfo *objectstore.ObjectInfo
+var downloadFilename string
+func (b bucketMock) Download(file *os.File, filename string) error {
+	downloadFilename = filename
+	return nil
+}
 
+var objectInfo *objectstore.ObjectInfo
 func (b bucketMock) ListObjectInfo() ([]objectstore.ObjectInfo, error) {
 	return []objectstore.ObjectInfo{*objectInfo}, nil
 }
@@ -622,12 +627,17 @@ func getBucketMock(namespace, objectstoreConfig string, kubeclient kubernetes.In
 func TestBucket(t *testing.T) {
 
 	snap := newConfiguredSnapshot("test1", "Completed")
+	snap2 := newConfiguredSnapshot("test2", "InProgress")
 	f := newFixture(t)
 	f.objects = append(f.objects, newObjectstoreConfig())
 	f.kubeobjects = append(f.kubeobjects, newCloudCredentialSecret())
 	f.objects = append(f.objects, snap)
-	cntl, _, _ := f.newController()
+	f.snapshotLister = append(f.snapshotLister, snap)
+	f.objects = append(f.objects, snap2)
+	f.snapshotLister = append(f.snapshotLister, snap2)
+	cntl, i, k8sI := f.newController()
 	cntl.getBucket = getBucketMock
+	f.initInformers(i, k8sI)
 
 	// Delete object
 	cntl.deleteSnapshot(snap)
@@ -666,6 +676,40 @@ func TestBucket(t *testing.T) {
 	}
 	if deleteFilename != "orphan.tgz" {
 		t.Errorf("Error in delete orphan object")
+	}
+
+	// syncObjects restore from object
+	objectInfo = &objectstore.ObjectInfo{
+		Name:             "restore.tgz",
+		Size:             int64(131072),
+		Timestamp:        time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
+		BucketConfigName: "bucket",
+	}
+	err = cntl.syncObjects(false, true, false)
+	if err != nil {
+		t.Errorf("Error in syncObject : %s", err.Error())
+	}
+	if downloadFilename != "restore.tgz" {
+		t.Errorf("Error in download object to restore")
+	}
+
+	// Restore snapshot resource from test tgz file
+	var kubeobjects []runtime.Object
+	var ukubeobjects []runtime.Object
+	kubeClient := k8sfake.NewSimpleClientset(kubeobjects...)
+	sch := runtime.NewScheme()
+	dynamicClient := dynamicfake.NewSimpleDynamicClient(sch, ukubeobjects...)
+	err = cluster.SnapshotWithClient(snap2, kubeClient, dynamicClient)
+	if err != nil {
+		t.Errorf("Error in snapshotWithClient : %s", err.Error())
+	}
+	err = cntl.restoreSnapshotFromObjectFile(objectstore.ObjectInfo{Name: "test2.tgz"})
+	if err != nil {
+		t.Errorf("Error in restoreSnapshotFromObjectFile : %s", err.Error())
+	}
+	restoredSnap, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get("test2", metav1.GetOptions{})
+	if restoredSnap.Status.Phase != "Completed" {
+		t.Errorf("Error restored snapshot status is not 'Completed' : %s", restoredSnap.Status.Phase)
 	}
 }
 

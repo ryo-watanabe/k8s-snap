@@ -7,6 +7,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -18,7 +19,6 @@ import (
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/client-go/testing"
-	rbac "k8s.io/api/rbac/v1"
 
 	clustersnapshot "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
@@ -52,7 +52,7 @@ func TestCluster(t *testing.T) {
 	ukubeobjects = append(ukubeobjects, unstrctrdResource("", "v1", "default", "svc1", "Endpoints", "endpoints").DeepCopyObject())
 	ukubeobjects = append(ukubeobjects, unstrctrdResource("", "v1", "kube-system", "secret1", "Secret", "secrets").DeepCopyObject())
 	pod := unstrctrdResource("", "v1", "default", "pod1", "Pod", "pods")
-	pod.SetOwnerReferences([]metav1.OwnerReference{metav1.OwnerReference{Name:"Pod-owner"}})
+	pod.SetOwnerReferences([]metav1.OwnerReference{metav1.OwnerReference{Name: "Pod-owner"}})
 	ukubeobjects = append(ukubeobjects, pod.DeepCopyObject())
 	ukubeobjects = append(ukubeobjects, convertToUnstructured(t, newClusterRoleBinding("default")).DeepCopyObject())
 	ukubeobjects = append(ukubeobjects, convertToUnstructured(t, newClusterRoleBinding("kube-system")).DeepCopyObject())
@@ -85,14 +85,14 @@ func TestCluster(t *testing.T) {
 				t.Errorf("Error in create configmap : %s", err.Error())
 			}
 			err = dynamicTracker.Update(
-				schema.GroupVersionResource{Version:"v1", Resource:"configmaps"},
+				schema.GroupVersionResource{Version: "v1", Resource: "configmaps"},
 				convertToUnstructured(t, newConfiguredConfigMap("test1", "test1_edited")),
 				"default",
 			)
 			if err != nil {
 				t.Errorf("Error in update configmap : %s", err.Error())
 			}
-			err = dynamicTracker.Delete(schema.GroupVersionResource{Version:"v1", Resource:"configmaps"}, "default", "test1")
+			err = dynamicTracker.Delete(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}, "default", "test1")
 			if err != nil {
 				t.Errorf("Error in delete configmap : %s", err.Error())
 			}
@@ -139,7 +139,7 @@ func TestCluster(t *testing.T) {
 	bucket := &bucketMock{}
 	objSize := int64(131072)
 	objTime := time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC)
-	objectInfo = &objectstore.ObjectInfo{Name:"test1.tgz", Size: objSize, Timestamp: objTime, BucketConfigName: "bucket"}
+	objectInfo = &objectstore.ObjectInfo{Name: "test1.tgz", Size: objSize, Timestamp: objTime, BucketConfigName: "bucket"}
 	err = UploadSnapshot(snap, bucket)
 	if err != nil {
 		t.Errorf("Error in UploadSnapshot : %s", err.Error())
@@ -161,7 +161,7 @@ func TestCluster(t *testing.T) {
 	pref := newRestorePreference("pref1")
 	restore := newConfiguredRestore("test1", "test2", "pref1", "InProgress")
 
-	// TEST3 : Downlaod snapshot tgz
+	// TEST3 : Download snapshot tgz
 	err = downloadSnapshot(restore, bucket)
 	if err != nil {
 		t.Errorf("Error in downloadSnapshot : %s", err.Error())
@@ -171,11 +171,11 @@ func TestCluster(t *testing.T) {
 	}
 
 	// Delete PV/PVCs and Reactor for getting PVC to test restoring
-	err = dynamicTracker.Delete(schema.GroupVersionResource{Version:"v1", Resource:"persistentvolumes"}, "", "pv1")
+	err = dynamicTracker.Delete(schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumes"}, "", "pv1")
 	if err != nil {
 		t.Errorf("Error in delete pv : %s", err.Error())
 	}
-	err = dynamicTracker.Delete(schema.GroupVersionResource{Version:"v1", Resource:"persistentvolumeclaims"}, "default", "pvc1")
+	err = dynamicTracker.Delete(schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumeclaims"}, "default", "pvc1")
 	if err != nil {
 		t.Errorf("Error in delete pvc : %s", err.Error())
 	}
@@ -185,7 +185,7 @@ func TestCluster(t *testing.T) {
 			waitcnt--
 		} else {
 			err = dynamicTracker.Update(
-				schema.GroupVersionResource{Version:"v1", Resource:"persistentvolumes"},
+				schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumes"},
 				convertToUnstructured(t, newPV("pv1", "include-nfs-storage", "default", "pvc1")),
 				"",
 			)
@@ -249,9 +249,9 @@ func chkResourceList(t *testing.T, res, ref []string) {
 	if len(res) != len(ref) {
 		notMatch = true
 	}
-	for _, x := range(res) {
+	for _, x := range res {
 		notFound := true
-		for _, y := range(ref) {
+		for _, y := range ref {
 			if x == y {
 				notFound = false
 				break
@@ -331,7 +331,7 @@ func newDynamicClient(scheme *runtime.Scheme, rv uint64, objects ...runtime.Obje
 	return cs
 }
 
-func convertToUnstructured(t *testing.T, obj runtime.Object) (runtime.Object) {
+func convertToUnstructured(t *testing.T, obj runtime.Object) runtime.Object {
 	maped, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
 		t.Errorf("Error converting object to unstructured : %s", err.Error())
@@ -342,7 +342,7 @@ func convertToUnstructured(t *testing.T, obj runtime.Object) (runtime.Object) {
 
 func unstrctrdResource(group, version, ns, name, kind, resourcename string) *unstructured.Unstructured {
 	item := &unstructured.Unstructured{}
-	item.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind:kind})
+	item.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
 	item.SetName(name)
 	gvpath := "/apis/" + group + "/" + version
 	if group == "" {
@@ -362,7 +362,7 @@ func setAPIResourceList(resources []*metav1.APIResourceList, group, version, nam
 	if group == "" {
 		gv = version
 	}
-	for _, r := range(resources) {
+	for _, r := range resources {
 		if r.GroupVersion == gv {
 			r.APIResources = append(r.APIResources, metav1.APIResource{
 				Name: name, Group: group, Version: version, Kind: kind, Namespaced: namespaced,
@@ -437,10 +437,10 @@ func newRestorePreference(name string) *clustersnapshot.RestorePreference {
 			Namespace: metav1.NamespaceDefault,
 		},
 		Spec: clustersnapshot.RestorePreferenceSpec{
-			ExcludeNamespaces: []string{"kube-system"},
-			ExcludeCRDs: []string{"crd.exclude.org"},
-			ExcludeAPIPathes: []string{"/api/v1,componentstatuses"},
-			RestoreAppAPIPathes: []string{"/api/v1,pods","/api/v1,services","/api/v1,endpoints"},
+			ExcludeNamespaces:        []string{"kube-system"},
+			ExcludeCRDs:              []string{"crd.exclude.org"},
+			ExcludeAPIPathes:         []string{"/api/v1,componentstatuses"},
+			RestoreAppAPIPathes:      []string{"/api/v1,pods", "/api/v1,services", "/api/v1,endpoints"},
 			RestoreNfsStorageClasses: []string{"include-nfs-storage"},
 		},
 	}
@@ -469,8 +469,8 @@ func newClusterRoleBinding(ns string) *rbac.ClusterRoleBinding {
 	return &rbac.ClusterRoleBinding{
 		TypeMeta: metav1.TypeMeta{APIVersion: "rbac.authorization.k8s.io/v1", Kind: "ClusterRoleBinding"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cluster-admin-" + ns,
-			SelfLink:  "/apis/rbac.authorization.k8s.io/v1/clusterrolebindings/cluster-admin-" + ns,
+			Name:     "cluster-admin-" + ns,
+			SelfLink: "/apis/rbac.authorization.k8s.io/v1/clusterrolebindings/cluster-admin-" + ns,
 		},
 		Subjects: []rbac.Subject{
 			rbac.Subject{Kind: "ServiceAccount", Name: "default", Namespace: ns},
@@ -483,11 +483,11 @@ func newPV(name, class, claimns, claimname string) *corev1.PersistentVolume {
 	return &corev1.PersistentVolume{
 		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "PersistentVolume"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			SelfLink:  "/api/v1/persistentvolumes/" + name,
+			Name:     name,
+			SelfLink: "/api/v1/persistentvolumes/" + name,
 		},
 		Spec: corev1.PersistentVolumeSpec{
-			ClaimRef: &corev1.ObjectReference{Namespace: claimns, Name: claimname},
+			ClaimRef:         &corev1.ObjectReference{Namespace: claimns, Name: claimname},
 			StorageClassName: class,
 		},
 		Status: corev1.PersistentVolumeStatus{
@@ -506,7 +506,7 @@ func newPVC(ns, name, class, pvname string) *corev1.PersistentVolumeClaim {
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			StorageClassName: &class,
-			VolumeName: pvname,
+			VolumeName:       pvname,
 		},
 		Status: corev1.PersistentVolumeClaimStatus{
 			Phase: "Bound",

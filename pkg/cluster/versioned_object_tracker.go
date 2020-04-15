@@ -81,7 +81,7 @@ type tracker struct {
 	// Manipulations on resources will broadcast the notification events into the
 	// watchers' channel. Note that too many unhandled events (currently 100,
 	// see apimachinery/pkg/watch.DefaultChanSize) will cause a panic.
-	watchers map[schema.GroupVersionResource]map[string][]*watch.RaceFreeFakeWatcher
+	watchers           map[schema.GroupVersionResource]map[string][]*watch.RaceFreeFakeWatcher
 	intResourceVersion uint64
 }
 
@@ -91,10 +91,10 @@ var _ ObjectTracker = &tracker{}
 // of objects for the fake clientset. Mostly useful for unit tests.
 func NewObjectTracker(scheme ObjectScheme, decoder runtime.Decoder, rv uint64) ObjectTracker {
 	return &tracker{
-		scheme:   scheme,
-		decoder:  decoder,
-		objects:  make(map[schema.GroupVersionResource]map[types.NamespacedName]runtime.Object),
-		watchers: make(map[schema.GroupVersionResource]map[string][]*watch.RaceFreeFakeWatcher),
+		scheme:             scheme,
+		decoder:            decoder,
+		objects:            make(map[schema.GroupVersionResource]map[types.NamespacedName]runtime.Object),
+		watchers:           make(map[schema.GroupVersionResource]map[string][]*watch.RaceFreeFakeWatcher),
 		intResourceVersion: rv,
 	}
 }
@@ -387,6 +387,7 @@ func filterByNamespace(objs map[types.NamespacedName]runtime.Object, ns string) 
 	return res, nil
 }
 
+// DefaultWatchReactor returns default watch action
 func DefaultWatchReactor(watchInterface watch.Interface, err error) testing.WatchReactionFunc {
 	return func(action testing.Action) (bool, watch.Interface, error) {
 		return true, watchInterface, err

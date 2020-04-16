@@ -124,16 +124,17 @@ func (c *Controller) restoreSnapshotFromObjectFile(object objectstore.ObjectInfo
 			ermsg = ermsg[0:300] + "....."
 		}
 		// Add kind and apiVersion to older snapshots
-		if strings.Contains(ermsg, "Object 'Kind' is missing") {
-			snapshotJSON := "{\"kind\":\"Snapshot\",\"apiVersion\":\"clustersnapshot.rywt.io/v1alpha1\","
-			snapshotJSON += string(bytes)[1:]
-			err = item.UnmarshalJSON([]byte(snapshotJSON))
-			if err != nil {
-				return err
-			}
-		} else {
-			return fmt.Errorf("UnmarshalJSON error : %s", ermsg)
-		}
+		//if strings.Contains(ermsg, "Object 'Kind' is missing") {
+		//	snapshotJSON := "{\"kind\":\"Snapshot\",\"apiVersion\":\"clustersnapshot.rywt.io/v1alpha1\","
+		//	snapshotJSON += string(bytes)[1:]
+		//	err = item.UnmarshalJSON([]byte(snapshotJSON))
+		//	if err != nil {
+		//		return err
+		//	}
+		//} else {
+		//	return fmt.Errorf("UnmarshalJSON error : %s", ermsg)
+		//}
+		return fmt.Errorf("UnmarshalJSON error : %s", ermsg)
 	}
 
 	// Create item

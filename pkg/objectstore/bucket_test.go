@@ -1,6 +1,7 @@
 package objectstore
 
 import (
+	"flag"
 	"io"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
+	"k8s.io/klog"
 )
 
 // NewMockBucket returns new mock Bucket
@@ -120,6 +122,13 @@ func newMockDownloader(sess *session.Session) s3manageriface.DownloaderAPI {
 }
 
 func TestBucket(t *testing.T) {
+
+	// Init klog
+	klog.InitFlags(nil)
+	flag.Set("logtostderr", "true")
+	flag.Parse()
+	klog.Infof("k8s-snap pkg objectstore test")
+	klog.Flush()
 
 	b := NewMockBucket("test", "ACCESSKEY", "SECRETKEY", "https://endpoint.net", "region", "k8s-snap", true)
 

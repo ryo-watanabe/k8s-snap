@@ -1,12 +1,14 @@
 package main
 
 import (
-	//"fmt"
+	"fmt"
+	"flag"
 	"os"
 	"reflect"
 	"testing"
 	"time"
 
+	"k8s.io/klog"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -48,9 +50,17 @@ type Case struct {
 	deleteRestores   []*clustersnapshot.Restore
 	queueOnly        bool
 	handleKey        string
+	restoreerror     error
 }
 
 func TestSnapshot(t *testing.T) {
+
+	// Init klog
+	klog.InitFlags(nil)
+	flag.Set("logtostderr", "true")
+	flag.Parse()
+	klog.Infof("k8s-snap pkg main test")
+	klog.Flush()
 
 	cases := []Case{
 		// 0:create snapshot
@@ -159,10 +169,37 @@ func TestSnapshot(t *testing.T) {
 	}
 }
 
+func newRestoreCase(resultStatus, reason string) Case {
+	c := Case{
+		snapshots: []*clustersnapshot.Snapshot{
+			newConfiguredSnapshot("snapshot", "Completed"),
+		},
+		restores: []*clustersnapshot.Restore{
+			newConfiguredRestore("test1", "InQueue"),
+		},
+		preferences: []*clustersnapshot.RestorePreference{
+			newRestorePreference(),
+		},
+		updatedRestores: []*clustersnapshot.Restore{
+			newConfiguredRestore("test1", "InProgress"),
+			newConfiguredRestore("test1", resultStatus),
+		},
+		configs: []*clustersnapshot.ObjectstoreConfig{
+			newObjectstoreConfig(),
+		},
+		secrets: []*corev1.Secret{
+			newCloudCredentialSecret(),
+		},
+		handleKey: "test1",
+	}
+	c.updatedRestores[1].Status.Reason = reason
+	return c
+}
+
 func TestRestore(t *testing.T) {
 
 	cases := []Case{
-		// create restore
+		// 0:create restore
 		Case{
 			restores: []*clustersnapshot.Restore{
 				newConfiguredRestore("test1", "Completed"),
@@ -175,25 +212,26 @@ func TestRestore(t *testing.T) {
 			handleKey: "test2",
 		},
 		// 1:InQueue > InProgress > Completed
+		newRestoreCase("Completed", ""),
+		// 2:InQueue > InProgress > Failed with restore error
+		newRestoreCase("Failed", "Mock cluster resturns a error"),
+		// 3:InQueue > InProgress > Failed with invalid snapshot
+		newRestoreCase("Failed", "Snapshot data is not in status 'Completed'"),
+		// 4:InQueue > InProgress > Failed with snapshot not found
+		newRestoreCase("Failed", "snapshots.clustersnapshot.rywt.io \"snapshot\" not found"),
+		// 5:InQueue > InProgress > Failed with config not found
+		newRestoreCase("Failed", "objectstoreconfigs.clustersnapshot.rywt.io \"objectstoreConfig\" not found"),
+		// 6:InQueue > InProgress > Failed with secret not found
+		newRestoreCase("Failed", "secrets \"cloudCredentialSecret\" not found"),
+		// 7:InQueue > InProgress > Failed with preference not found
+		newRestoreCase("Failed", "restorepreferences.clustersnapshot.rywt.io \"restorePreference\" not found"),
+		// 8:Expiration for failed restore
 		Case{
-			snapshots: []*clustersnapshot.Snapshot{
-				newConfiguredSnapshot("snapshot", "Completed"),
-			},
 			restores: []*clustersnapshot.Restore{
-				newConfiguredRestore("test1", "InQueue"),
-			},
-			preferences: []*clustersnapshot.RestorePreference{
-				newRestorePreference(),
+				newConfiguredRestore("test1", "Failed"),
 			},
 			updatedRestores: []*clustersnapshot.Restore{
-				newConfiguredRestore("test1", "InProgress"),
-				newConfiguredRestore("test1", "Completed"),
-			},
-			configs: []*clustersnapshot.ObjectstoreConfig{
-				newObjectstoreConfig(),
-			},
-			secrets: []*corev1.Secret{
-				newCloudCredentialSecret(),
+				newConfiguredRestore("test1", "Failed"),
 			},
 			handleKey: "test1",
 		},
@@ -203,6 +241,19 @@ func TestRestore(t *testing.T) {
 	// Create restore
 	cases[0].updatedRestores[0].Spec.TTL.Duration, _ = time.ParseDuration("168h0m0s")
 	// 1:InQueue > InProgress > Completed
+	// 2:InQueue > InProgress > Failed with restore error
+	cases[2].restoreerror = fmt.Errorf("Mock cluster resturns a error")
+	// 3:InQueue > InProgress > Failed with invalid snapshot
+	cases[3].snapshots[0].Status.Phase = "Failed"
+	// 4:InQueue > InProgress > Failed with snapshot not found
+	cases[4].snapshots = nil
+	// 5:InQueue > InProgress > Failed with config not found
+	cases[5].configs = nil
+	// 6:InQueue > InProgress > Failed with secret not found
+	cases[6].secrets = nil
+	// 7:InQueue > InProgress > Failed with preference not found
+	cases[7].preferences = nil
+	// 8:Expiration for failed restore
 
 	for _, c := range cases {
 		RestoreTestCase(&c, t)
@@ -328,8 +379,9 @@ func (c *mockCluster) UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket objec
 }
 
 // Restore for fake cluster interface
+var restoreErr error
 func (c *mockCluster) Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket objectstore.Objectstore) error {
-	return nil
+	return restoreErr
 }
 
 //func (f *fixture) newController() (*Controller, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
@@ -347,7 +399,7 @@ func (f *fixture) newController() (*Controller, informers.SharedInformerFactory,
 		f.kubeclient, f.dynamic, f.client,
 		i.Clustersnapshot().V1alpha1().Snapshots(),
 		i.Clustersnapshot().V1alpha1().Restores(),
-		snapshotNamespace, true, true, true, false, false, maxRetryMin,
+		snapshotNamespace, true, true, true, false, true, maxRetryMin,
 		&mockCluster{},
 	)
 
@@ -579,6 +631,8 @@ func RestoreTestCase(c *Case, t *testing.T) {
 		f.expectDeleteRestoreAction(dr)
 	}
 
+	restoreErr = c.restoreerror
+
 	f.initInformers(i, k8sI)
 	f.startInformers(i, k8sI)
 
@@ -587,20 +641,60 @@ func RestoreTestCase(c *Case, t *testing.T) {
 	} else {
 		f.run(cntl, "default/"+c.handleKey, "restores")
 	}
+
+	restoreErr = nil
 }
 
 func TestQueues(t *testing.T) {
+
 	f := newFixture(t)
 
-	cntl, _, _ := f.newController()
-
 	snap := newConfiguredSnapshot("test1", "")
+	f.objects = append(f.objects, snap)
+	f.snapshotLister = append(f.snapshotLister, snap)
+	restore := newConfiguredRestore("test1", "")
+	f.objects = append(f.objects, restore)
+	f.restoreLister = append(f.restoreLister, restore)
+
+	cntl, i, k8sI := f.newController()
+	f.initInformers(i, k8sI)
+
 	cntl.enqueueSnapshot(snap)
 	cntl.processNextSnapshotItem(false)
+	handledSnap, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get("test1", metav1.GetOptions{})
+	if handledSnap.Status.Phase != "InQueue" {
+		t.Errorf("Handled snap status not correct : %s", handledSnap.Status.Phase)
+	}
+
+	cntl.enqueueRestore(restore)
+	cntl.processNextRestoreItem(false)
+	handledRestore, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Restores(cntl.namespace).Get("test1", metav1.GetOptions{})
+	if handledRestore.Status.Phase != "InQueue" {
+		t.Errorf("Handled restore status not correct : %s", handledRestore.Status.Phase)
+	}
 }
 
 type bucketMock struct {
 	objectstore.Objectstore
+}
+
+func (b bucketMock) GetName() string {
+	return "config"
+}
+func (b bucketMock) GetEndpoint() string {
+	return "example.com"
+}
+func (b bucketMock) GetBucketName() string {
+	return "bucket"
+}
+
+var bucketFound bool
+func (b bucketMock) ChkBucket() (bool, error) {
+	return bucketFound, nil
+}
+
+func (b bucketMock) CreateBucket() error {
+	return nil
 }
 
 var deleteFilename string
@@ -710,6 +804,58 @@ func TestBucket(t *testing.T) {
 	restoredSnap, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get("test2", metav1.GetOptions{})
 	if restoredSnap.Status.Phase != "Completed" {
 		t.Errorf("Error restored snapshot status is not 'Completed' : %s", restoredSnap.Status.Phase)
+	}
+}
+
+func TestControllerRun(t *testing.T) {
+
+	ns := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Namespace"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default",
+		},
+	}
+	config := newObjectstoreConfig()
+	objectInfo = &objectstore.ObjectInfo{
+		Name:             "test1.tgz",
+		Size:             int64(131072),
+		Timestamp:        time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
+		BucketConfigName: "bucket",
+	}
+	snap := newConfiguredSnapshot("test1", "Completed")
+
+	f := newFixture(t)
+	f.kubeobjects = append(f.kubeobjects, ns)
+	f.objects = append(f.objects, config)
+	f.objects = append(f.objects, snap)
+	f.snapshotLister = append(f.snapshotLister, snap)
+	cntl, i, k8sI := f.newController()
+	cntl.getBucket = getBucketMock
+	f.initInformers(i, k8sI)
+
+	// Run controller
+	var err error
+	bucketFound = true
+	stopCh := make(chan struct{})
+	go func() {
+		err = cntl.Run(0, 0, stopCh)
+	}()
+	time.Sleep(1 * time.Second)
+	close(stopCh)
+	if err != nil {
+		t.Errorf("Error in controller Run : %s", err.Error())
+	}
+
+	// Run controller bucket not found
+	bucketFound = false
+	stopCh = make(chan struct{})
+	go func() {
+		err = cntl.Run(0, 0, stopCh)
+	}()
+	time.Sleep(1 * time.Second)
+	close(stopCh)
+	if err != nil {
+		t.Errorf("Error in controller Run : %s", err.Error())
 	}
 }
 

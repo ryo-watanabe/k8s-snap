@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"flag"
 	"os"
 	"strconv"
 	"testing"
@@ -19,6 +20,7 @@ import (
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/client-go/testing"
+	"k8s.io/klog"
 
 	clustersnapshot "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
@@ -28,6 +30,13 @@ var kubeobjects []runtime.Object
 var ukubeobjects []runtime.Object
 
 func TestCluster(t *testing.T) {
+
+	// Init klog
+	klog.InitFlags(nil)
+	flag.Set("logtostderr", "true")
+	flag.Parse()
+	klog.Infof("k8s-snap pkg cluster test")
+	klog.Flush()
 
 	// Define API Resources
 	kubeClient := k8sfake.NewSimpleClientset(kubeobjects...)

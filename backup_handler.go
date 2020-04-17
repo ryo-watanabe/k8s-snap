@@ -96,7 +96,7 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 	if snapshot.Status.Phase == "InProgress" {
 
 		// check timestamp just in case
-		retryend := metav1.NewTime(snapshot.ObjectMeta.CreationTimestamp.Add(time.Duration(c.maxretryelaspsedminutes+1) * time.Minute))
+		retryend := metav1.NewTime(snapshot.ObjectMeta.CreationTimestamp.Add(time.Duration(c.maxretryelapsedsec+1) * time.Second))
 		nowTime := metav1.NewTime(time.Now())
 		if retryend.Before(&nowTime) {
 			snapshot, err = c.updateSnapshotStatus(snapshot, "Failed", "Controller stopped while taking the snapshot")
@@ -126,7 +126,7 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 
 		// do snapshot with backoff retry
 		b := backoff.NewExponentialBackOff()
-		b.MaxElapsedTime = time.Duration(c.maxretryelaspsedminutes) * time.Minute
+		b.MaxElapsedTime = time.Duration(c.maxretryelapsedsec) * time.Second
 		b.RandomizationFactor = 0.2
 		b.Multiplier = 2.0
 		b.InitialInterval = 2 * time.Second

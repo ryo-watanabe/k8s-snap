@@ -21,6 +21,7 @@ import (
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"github.com/cenkalti/backoff"
 
 	clustersnapshot "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 	informers "github.com/ryo-watanabe/k8s-snap/pkg/client/informers/externalversions"
@@ -51,6 +52,29 @@ type Case struct {
 	queueOnly        bool
 	handleKey        string
 	restoreerror     error
+	snaperror        error
+	uploaderror      error
+}
+
+func newSnapshotCase(resultStatus, reason string) Case {
+	c := Case{
+		snapshots: []*clustersnapshot.Snapshot{
+			newConfiguredSnapshot("test1", "InQueue"),
+		},
+		updatedSnapshots: []*clustersnapshot.Snapshot{
+			newConfiguredSnapshot("test1", "InProgress"),
+			newConfiguredSnapshot("test1", resultStatus),
+		},
+		configs: []*clustersnapshot.ObjectstoreConfig{
+			newObjectstoreConfig(),
+		},
+		secrets: []*corev1.Secret{
+			newCloudCredentialSecret(),
+		},
+		handleKey: "test1",
+	}
+	c.updatedSnapshots[1].Status.Reason = reason
+	return c
 }
 
 func TestSnapshot(t *testing.T) {
@@ -87,36 +111,9 @@ func TestSnapshot(t *testing.T) {
 			handleKey: "test1",
 		},
 		// 2:InQueue > InProgress > Completed
-		Case{
-			snapshots: []*clustersnapshot.Snapshot{
-				newConfiguredSnapshot("test1", "InQueue"),
-			},
-			updatedSnapshots: []*clustersnapshot.Snapshot{
-				newConfiguredSnapshot("test1", "InProgress"),
-				newConfiguredSnapshot("test1", "Completed"),
-			},
-			configs: []*clustersnapshot.ObjectstoreConfig{
-				newObjectstoreConfig(),
-			},
-			secrets: []*corev1.Secret{
-				newCloudCredentialSecret(),
-			},
-			handleKey: "test1",
-		},
+		newSnapshotCase("Completed", ""),
 		// 3:InQueue > InProgress > Failed - secret not found
-		Case{
-			snapshots: []*clustersnapshot.Snapshot{
-				newConfiguredSnapshot("test1", "InQueue"),
-			},
-			updatedSnapshots: []*clustersnapshot.Snapshot{
-				newConfiguredSnapshot("test1", "InProgress"),
-				newConfiguredSnapshot("test1", "Failed"),
-			},
-			configs: []*clustersnapshot.ObjectstoreConfig{
-				newObjectstoreConfig(),
-			},
-			handleKey: "test1",
-		},
+		newSnapshotCase("Failed", "secrets \"cloudCredentialSecret\" not found"),
 		// 4:Add expiration to failed snapshot and delete
 		Case{
 			snapshots: []*clustersnapshot.Snapshot{
@@ -130,7 +127,7 @@ func TestSnapshot(t *testing.T) {
 			},
 			handleKey: "test1",
 		},
-		// 5:Mark Failed to InProgress snapshot and delete
+		// 5:Mark Failed to InProgress snapshot
 		Case{
 			snapshots: []*clustersnapshot.Snapshot{
 				newConfiguredSnapshot("test1", "InProgress"),
@@ -141,6 +138,47 @@ func TestSnapshot(t *testing.T) {
 			},
 			handleKey: "test1",
 		},
+		// 6:Past date AvailableUntil
+		Case{
+			snapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", ""),
+			},
+			updatedSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "Failed"),
+			},
+			handleKey: "test1",
+		},
+		// 7:Expiration for failed snapshot AvailableUntil set
+		Case{
+			snapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "Failed"),
+			},
+			updatedSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "Failed"),
+			},
+			handleKey: "test1",
+		},
+		// 8:Expiration edited and deleted
+		Case{
+			snapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "Completed"),
+			},
+			updatedSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "Completed"),
+			},
+			deleteSnapshots: []*clustersnapshot.Snapshot{
+				newConfiguredSnapshot("test1", "Completed"),
+			},
+			handleKey: "test1",
+		},
+		// 9:InQueue > InProgress > Failed - cluster.Snapshot returns error
+		newSnapshotCase("Failed", "Mock cluster returns perm error"),
+		// 10:InQueue > InProgress > Failed - cluster.Snapshot returns retry timeout
+		newSnapshotCase("Failed", "Mock cluster returns not perm error"),
+		// 11:InQueue > InProgress > Failed - cluster.Upload returns error
+		newSnapshotCase("Failed", "Mock cluster upload returns perm error"),
+		// 12:InQueue > InProgress > Failed - cluster.Upload returns retry timeout
+		newSnapshotCase("Failed", "Mock cluster upload returns not perm error"),
 	}
 
 	// Additional test data:
@@ -154,15 +192,39 @@ func TestSnapshot(t *testing.T) {
 	cases[1].updatedSnapshots[0].Spec.AvailableUntil.Time = time.Date(2020, time.July, 1, 2, 3, 4, 0, time.UTC)
 	// 2:InQueue > InProgress > Completed
 	// 3:InQueue > InProgress > Failed - secret not found
-	cases[3].updatedSnapshots[1].Status.Reason = "secrets \"cloudCredentialSecret\" not found"
+	cases[3].secrets = nil
 	// 4:Add expiration to failed snapshot
 	cases[4].snapshots[0].Spec.TTL.Duration = dur
 	cases[4].updatedSnapshots[0].Spec.TTL.Duration = dur
 	cases[4].updatedSnapshots[0].Status.AvailableUntil = metav1.NewTime(cases[4].updatedSnapshots[0].ObjectMeta.CreationTimestamp.Add(dur))
 	cases[4].updatedSnapshots[0].Status.TTL.Duration = dur
-	// 5:Mark Failed to InProgress snapshot and delete
+	// 5:Mark Failed to InProgress snapshot
 	cases[5].updatedSnapshots[0].Status.Reason = "Controller stopped while taking the snapshot"
 	cases[5].updatedSnapshots[1].Status.Reason = "Controller stopped while taking the snapshot"
+	// 6:Past date AvailableUntil
+	past := metav1.NewTime(time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC))
+	cases[6].snapshots[0].Spec.AvailableUntil = past
+	cases[6].updatedSnapshots[0].Spec.AvailableUntil = past
+	cases[6].updatedSnapshots[0].Status.Reason = "AvailableUntil is set as past."
+	// 7:Expiration for failed restore AvailableUntil set
+	future := metav1.NewTime(time.Date(2050, 5, 20, 23, 59, 59, 0, time.UTC))
+	cases[7].snapshots[0].Spec.AvailableUntil = future
+	cases[7].updatedSnapshots[0].Spec.AvailableUntil = future
+	cases[7].updatedSnapshots[0].Status.AvailableUntil = future
+	cases[7].updatedSnapshots[0].Status.TTL.Duration = future.Time.Sub(cases[7].snapshots[0].ObjectMeta.CreationTimestamp.Time)
+	// 8:Expiration edited
+	cases[8].snapshots[0].Spec.AvailableUntil = past
+	cases[8].snapshots[0].Status.AvailableUntil = future
+	cases[8].updatedSnapshots[0].Spec.AvailableUntil = past
+	cases[8].updatedSnapshots[0].Status.AvailableUntil = past
+	// 9:InQueue > InProgress > Failed - cluster.Snapshot returns error
+	cases[9].snaperror = backoff.Permanent(fmt.Errorf("Mock cluster returns perm error"))
+	// 10:InQueue > InProgress > Failed - cluster.Snapshot returns retry timeout
+	cases[10].snaperror = fmt.Errorf("Mock cluster returns not perm error")
+	// 11:InQueue > InProgress > Failed - cluster.Upload returns error
+	cases[11].uploaderror = backoff.Permanent(fmt.Errorf("Mock cluster upload returns perm error"))
+	// 12:InQueue > InProgress > Failed - cluster.Upload returns retry timeout
+	cases[12].uploaderror = fmt.Errorf("Mock cluster upload returns not perm error")
 
 	for _, c := range cases {
 		SnapshotTestCase(&c, t)
@@ -193,6 +255,9 @@ func newRestoreCase(resultStatus, reason string) Case {
 		handleKey: "test1",
 	}
 	c.updatedRestores[1].Status.Reason = reason
+	c.restores[0].Spec.TTL.Duration, _ = time.ParseDuration("168h0m0s")
+	c.updatedRestores[0].Spec.TTL.Duration, _ = time.ParseDuration("168h0m0s")
+	c.updatedRestores[1].Spec.TTL.Duration, _ = time.ParseDuration("168h0m0s")
 	return c
 }
 
@@ -225,7 +290,30 @@ func TestRestore(t *testing.T) {
 		newRestoreCase("Failed", "secrets \"cloudCredentialSecret\" not found"),
 		// 7:InQueue > InProgress > Failed with preference not found
 		newRestoreCase("Failed", "restorepreferences.clustersnapshot.rywt.io \"restorePreference\" not found"),
-		// 8:Expiration for failed restore
+		// 8:Expiration for failed restore and delete
+		Case{
+			restores: []*clustersnapshot.Restore{
+				newConfiguredRestore("test1", "Failed"),
+			},
+			updatedRestores: []*clustersnapshot.Restore{
+				newConfiguredRestore("test1", "Failed"),
+			},
+			deleteRestores: []*clustersnapshot.Restore{
+				newConfiguredRestore("test1", "Failed"),
+			},
+			handleKey: "test1",
+		},
+		// 9:Past date AvailableUntil
+		Case{
+			restores: []*clustersnapshot.Restore{
+				newConfiguredRestore("test1", ""),
+			},
+			updatedRestores: []*clustersnapshot.Restore{
+				newConfiguredRestore("test1", "Failed"),
+			},
+			handleKey: "test1",
+		},
+		// 10:Expiration for failed restore AvailableUntil set
 		Case{
 			restores: []*clustersnapshot.Restore{
 				newConfiguredRestore("test1", "Failed"),
@@ -235,11 +323,26 @@ func TestRestore(t *testing.T) {
 			},
 			handleKey: "test1",
 		},
+		// 11:Expiration edited and deleted
+		Case{
+			restores: []*clustersnapshot.Restore{
+				newConfiguredRestore("test1", "Completed"),
+			},
+			updatedRestores: []*clustersnapshot.Restore{
+				newConfiguredRestore("test1", "Completed"),
+			},
+			deleteRestores: []*clustersnapshot.Restore{
+				newConfiguredRestore("test1", "Completed"),
+			},
+			handleKey: "test1",
+		},
 	}
+
+	dur, _ := time.ParseDuration("168h0m0s")
 
 	// Additional test data:
 	// Create restore
-	cases[0].updatedRestores[0].Spec.TTL.Duration, _ = time.ParseDuration("168h0m0s")
+	cases[0].updatedRestores[0].Spec.TTL.Duration = dur
 	// 1:InQueue > InProgress > Completed
 	// 2:InQueue > InProgress > Failed with restore error
 	cases[2].restoreerror = fmt.Errorf("Mock cluster resturns a error")
@@ -254,6 +357,26 @@ func TestRestore(t *testing.T) {
 	// 7:InQueue > InProgress > Failed with preference not found
 	cases[7].preferences = nil
 	// 8:Expiration for failed restore
+	cases[8].restores[0].Spec.TTL.Duration = dur
+	cases[8].updatedRestores[0].Spec.TTL.Duration = dur
+	cases[8].updatedRestores[0].Status.AvailableUntil = metav1.NewTime(cases[8].restores[0].ObjectMeta.CreationTimestamp.Add(dur))
+	cases[8].updatedRestores[0].Status.TTL.Duration = dur
+	// 9:Past date AvailableUntil
+	past := metav1.NewTime(time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC))
+	cases[9].restores[0].Spec.AvailableUntil = past
+	cases[9].updatedRestores[0].Spec.AvailableUntil = past
+	cases[9].updatedRestores[0].Status.Reason = "AvailableUntil is set as past."
+	// 10:Expiration for failed restore AvailableUntil set
+	future := metav1.NewTime(time.Date(2050, 5, 20, 23, 59, 59, 0, time.UTC))
+	cases[10].restores[0].Spec.AvailableUntil = future
+	cases[10].updatedRestores[0].Spec.AvailableUntil = future
+	cases[10].updatedRestores[0].Status.AvailableUntil = future
+	cases[10].updatedRestores[0].Status.TTL.Duration = future.Time.Sub(cases[10].restores[0].ObjectMeta.CreationTimestamp.Time)
+	// 11:Expiration edited
+	cases[11].restores[0].Spec.AvailableUntil = past
+	cases[11].restores[0].Status.AvailableUntil = future
+	cases[11].updatedRestores[0].Spec.AvailableUntil = past
+	cases[11].updatedRestores[0].Status.AvailableUntil = past
 
 	for _, c := range cases {
 		RestoreTestCase(&c, t)
@@ -369,13 +492,15 @@ type mockCluster struct {
 }
 
 // Snapshot for fake cluster interface
+var snapshotErr error
 func (c *mockCluster) Snapshot(snapshot *cbv1alpha1.Snapshot) error {
-	return nil
+	return snapshotErr
 }
 
 // UploadSnapshot for fake cluster interface
+var uploadErr error
 func (c *mockCluster) UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket objectstore.Objectstore) error {
-	return nil
+	return uploadErr
 }
 
 // Restore for fake cluster interface
@@ -393,13 +518,11 @@ func (f *fixture) newController() (*Controller, informers.SharedInformerFactory,
 	i := informers.NewSharedInformerFactory(f.client, noResyncPeriodFunc())
 	k8sI := kubeinformers.NewSharedInformerFactory(f.kubeclient, noResyncPeriodFunc())
 
-	var maxRetryMin int
-	maxRetryMin = 5
 	c := NewController(
 		f.kubeclient, f.dynamic, f.client,
 		i.Clustersnapshot().V1alpha1().Snapshots(),
 		i.Clustersnapshot().V1alpha1().Restores(),
-		snapshotNamespace, true, true, true, false, true, maxRetryMin,
+		snapshotNamespace, true, true, true, false, true, 5,
 		&mockCluster{},
 	)
 
@@ -484,7 +607,7 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		return
 	}
 
-	t.Logf("Chacking Action %s %s", actual.GetVerb(), actual.GetResource().Resource)
+	//t.Logf("Chacking Action %s %s", actual.GetVerb(), actual.GetResource().Resource)
 
 	switch a := actual.(type) {
 	case core.CreateAction:
@@ -591,6 +714,9 @@ func SnapshotTestCase(c *Case, t *testing.T) {
 		f.expectDeleteSnapshotAction(ds)
 	}
 
+	snapshotErr = c.snaperror
+	uploadErr = c.uploaderror
+
 	f.initInformers(i, k8sI)
 	f.startInformers(i, k8sI)
 
@@ -599,6 +725,9 @@ func SnapshotTestCase(c *Case, t *testing.T) {
 	} else {
 		f.run(cntl, "default/"+c.handleKey, "snapshots")
 	}
+
+	snapshotErr = nil
+	uploadErr = nil
 }
 
 func RestoreTestCase(c *Case, t *testing.T) {
@@ -709,102 +838,190 @@ func (b bucketMock) Download(file *os.File, filename string) error {
 	return nil
 }
 
-var objectInfo *objectstore.ObjectInfo
+var objectInfoList []objectstore.ObjectInfo
 func (b bucketMock) ListObjectInfo() ([]objectstore.ObjectInfo, error) {
-	return []objectstore.ObjectInfo{*objectInfo}, nil
+	return objectInfoList, nil
 }
 
 func getBucketMock(namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error) {
 	return bucketMock{}, nil
 }
 
-func TestBucket(t *testing.T) {
-
-	snap := newConfiguredSnapshot("test1", "Completed")
-	snap2 := newConfiguredSnapshot("test2", "InProgress")
+func newBucketTestController(t *testing.T, snapshots []*clustersnapshot.Snapshot) *Controller {
 	f := newFixture(t)
 	f.objects = append(f.objects, newObjectstoreConfig())
 	f.kubeobjects = append(f.kubeobjects, newCloudCredentialSecret())
-	f.objects = append(f.objects, snap)
-	f.snapshotLister = append(f.snapshotLister, snap)
-	f.objects = append(f.objects, snap2)
-	f.snapshotLister = append(f.snapshotLister, snap2)
+	for _, snap := range(snapshots) {
+		f.objects = append(f.objects, snap)
+		f.snapshotLister = append(f.snapshotLister, snap)
+	}
 	cntl, i, k8sI := f.newController()
 	cntl.getBucket = getBucketMock
 	f.initInformers(i, k8sI)
+	return cntl
+}
+
+func doSyncObjects(t *testing.T, cntl *Controller, deleteOrphanObjects, restoreOrphanedSnapshots, validateFileinfo bool) {
+	err := cntl.syncObjects(deleteOrphanObjects, restoreOrphanedSnapshots, validateFileinfo)
+	if err != nil {
+		t.Errorf("Error in do nothing in syncObject : %s", err.Error())
+	}
+}
+
+func chkSnapshot(t *testing.T, cntl *Controller, name, status, reason string) {
+	snap, err := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("Error get snapshot %s : %s", name, err.Error())
+	}
+	if snap.Status.Phase != status || snap.Status.Reason != reason {
+		t.Errorf("Error snapshot is not expected (%s:%s) : %v", status, reason, snap)
+	}
+}
+
+func TestBucket(t *testing.T) {
 
 	// Delete object
-	cntl.deleteSnapshot(snap)
+	snapshots := []*clustersnapshot.Snapshot{newConfiguredSnapshot("test1", "Completed")}
+	cntl := newBucketTestController(t, snapshots)
+	cntl.deleteSnapshot(snapshots[0])
 	if deleteFilename != "test1.tgz" {
 		t.Errorf("Error in delete file name")
 	}
 
 	// Do nothing in syncObjects
-	err := cntl.syncObjects(false, false, false)
-	if err != nil {
-		t.Errorf("Error in do nothing in syncObject : %s", err.Error())
+	snapshots = []*clustersnapshot.Snapshot{}
+	cntl = newBucketTestController(t, snapshots)
+	doSyncObjects(t, cntl, false, false, false)
+
+	// syncObjects bucket data repair
+	snapshots = []*clustersnapshot.Snapshot{newConfiguredSnapshot("test1", "Completed")}
+	snapshots[0].Status.StoredTimestamp = metav1.NewTime(time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC)).Rfc3339Copy()
+	snapshots[0].Status.StoredFileSize = int64(131072)
+	objectInfoList = []objectstore.ObjectInfo{
+		objectstore.ObjectInfo{
+			Name:             "test1.tgz",
+			Size:             int64(131072),
+			Timestamp:        time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
+			BucketConfigName: "bucket",
+		},
+	}
+	cntl = newBucketTestController(t, snapshots)
+	doSyncObjects(t, cntl, true, false, false)
+	updatedSnap, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get("test1", metav1.GetOptions{})
+	if updatedSnap.Spec.ObjectstoreConfig != "bucket" {
+		t.Errorf("Error updated snapshot config is not match : %s", updatedSnap.Spec.ObjectstoreConfig)
 	}
 
-	// syncObjects no orphans
-	objectInfo = &objectstore.ObjectInfo{
-		Name:             "test1.tgz",
-		Size:             int64(131072),
-		Timestamp:        time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
-		BucketConfigName: "bucket",
+	// syncObjects orphan object and delete
+	snapshots = []*clustersnapshot.Snapshot{}
+	objectInfoList = []objectstore.ObjectInfo{
+		objectstore.ObjectInfo{
+			Name:             "orphan.tgz",
+			Size:             int64(131072),
+			Timestamp:        time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
+			BucketConfigName: "bucket",
+		},
 	}
-	err = cntl.syncObjects(true, false, false)
-	if err != nil {
-		t.Errorf("Error in syncObject : %s", err.Error())
-	}
-
-	// syncObjects orphan object
-	objectInfo = &objectstore.ObjectInfo{
-		Name:             "orphan.tgz",
-		Size:             int64(131072),
-		Timestamp:        time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
-		BucketConfigName: "bucket",
-	}
-	err = cntl.syncObjects(true, false, false)
-	if err != nil {
-		t.Errorf("Error in syncObject : %s", err.Error())
-	}
+	cntl = newBucketTestController(t, snapshots)
+	doSyncObjects(t, cntl, true, false, false)
 	if deleteFilename != "orphan.tgz" {
 		t.Errorf("Error in delete orphan object")
 	}
 
-	// syncObjects restore from object
-	objectInfo = &objectstore.ObjectInfo{
-		Name:             "restore.tgz",
-		Size:             int64(131072),
-		Timestamp:        time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
-		BucketConfigName: "bucket",
+	// syncObjects find snapshot without object and set Failed
+	snapshots = []*clustersnapshot.Snapshot{
+		newConfiguredSnapshot("test1", "Completed"),
 	}
-	err = cntl.syncObjects(false, true, false)
-	if err != nil {
-		t.Errorf("Error in syncObject : %s", err.Error())
+	objectInfoList = []objectstore.ObjectInfo{}
+	cntl = newBucketTestController(t, snapshots)
+	doSyncObjects(t, cntl, true, false, false)
+	chkSnapshot(t, cntl, "test1", "Failed", "Snapshot file not found")
+
+	// syncObjects validate size/timestamp and set Failed
+	snapshots = []*clustersnapshot.Snapshot{
+		newConfiguredSnapshot("test1", "Completed"),
 	}
+	objectInfoList = []objectstore.ObjectInfo{
+		objectstore.ObjectInfo{
+			Name:             "test1.tgz",
+			Size:             int64(131072),
+			Timestamp:        time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
+			BucketConfigName: "objectstoreConfig",
+		},
+	}
+	cntl = newBucketTestController(t, snapshots)
+	doSyncObjects(t, cntl, true, false, true)
+	chkSnapshot(t, cntl, "test1", "Failed", "Snapshot file size or timestamp not matched")
+
+	// syncObjects not validate and set object invalid snap Completed
+	snapshots = []*clustersnapshot.Snapshot{
+		newConfiguredSnapshot("test1", "Failed"),
+	}
+	objectInfoList = []objectstore.ObjectInfo{
+		objectstore.ObjectInfo{
+			Name:             "test1.tgz",
+			Size:             int64(131072),
+			Timestamp:        time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
+			BucketConfigName: "bucket",
+		},
+	}
+	cntl = newBucketTestController(t, snapshots)
+	doSyncObjects(t, cntl, true, false, false)
+	chkSnapshot(t, cntl, "test1", "Completed", "")
+
+	// syncObjects re-mark Failed snap to Completed
+	snapshots = []*clustersnapshot.Snapshot{
+		newConfiguredSnapshot("test1", "Failed"),
+	}
+	snapshots[0].Status.StoredTimestamp = metav1.NewTime(time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC)).Rfc3339Copy()
+	snapshots[0].Status.StoredFileSize = int64(131072)
+	objectInfoList = []objectstore.ObjectInfo{
+		objectstore.ObjectInfo{
+			Name:             "test1.tgz",
+			Size:             int64(131072),
+			Timestamp:        time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
+			BucketConfigName: "objectstoreConfig",
+		},
+	}
+	cntl = newBucketTestController(t, snapshots)
+	doSyncObjects(t, cntl, true, false, false)
+	chkSnapshot(t, cntl, "test1", "Completed", "")
+
+	// syncObjects downloads tgz file to restore
+	snapshots = []*clustersnapshot.Snapshot{}
+	objectInfoList = []objectstore.ObjectInfo{
+		objectstore.ObjectInfo{
+			Name:             "restore.tgz",
+			Size:             int64(131072),
+			Timestamp:        time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
+			BucketConfigName: "bucket",
+		},
+	}
+	cntl = newBucketTestController(t, snapshots)
+	doSyncObjects(t, cntl, false, true, false)
 	if downloadFilename != "restore.tgz" {
 		t.Errorf("Error in download object to restore")
 	}
 
 	// Restore snapshot resource from test tgz file
+	snapshots = []*clustersnapshot.Snapshot{
+		newConfiguredSnapshot("test1", "InProgress"),
+	}
+	cntl = newBucketTestController(t, snapshots)
 	var kubeobjects []runtime.Object
 	var ukubeobjects []runtime.Object
 	kubeClient := k8sfake.NewSimpleClientset(kubeobjects...)
 	sch := runtime.NewScheme()
 	dynamicClient := dynamicfake.NewSimpleDynamicClient(sch, ukubeobjects...)
-	err = cluster.SnapshotWithClient(snap2, kubeClient, dynamicClient)
+	err := cluster.SnapshotWithClient(snapshots[0], kubeClient, dynamicClient)
 	if err != nil {
 		t.Errorf("Error in snapshotWithClient : %s", err.Error())
 	}
-	err = cntl.restoreSnapshotFromObjectFile(objectstore.ObjectInfo{Name: "test2.tgz"})
+	err = cntl.restoreSnapshotFromObjectFile(objectstore.ObjectInfo{Name: "test1.tgz"})
 	if err != nil {
 		t.Errorf("Error in restoreSnapshotFromObjectFile : %s", err.Error())
 	}
-	restoredSnap, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get("test2", metav1.GetOptions{})
-	if restoredSnap.Status.Phase != "Completed" {
-		t.Errorf("Error restored snapshot status is not 'Completed' : %s", restoredSnap.Status.Phase)
-	}
+	chkSnapshot(t, cntl, "test1", "Completed", "")
 }
 
 func TestControllerRun(t *testing.T) {
@@ -816,11 +1033,13 @@ func TestControllerRun(t *testing.T) {
 		},
 	}
 	config := newObjectstoreConfig()
-	objectInfo = &objectstore.ObjectInfo{
-		Name:             "test1.tgz",
-		Size:             int64(131072),
-		Timestamp:        time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
-		BucketConfigName: "bucket",
+	objectInfoList = []objectstore.ObjectInfo{
+		objectstore.ObjectInfo{
+			Name:             "test1.tgz",
+			Size:             int64(131072),
+			Timestamp:        time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC),
+			BucketConfigName: "bucket",
+		},
 	}
 	snap := newConfiguredSnapshot("test1", "Completed")
 
@@ -838,7 +1057,7 @@ func TestControllerRun(t *testing.T) {
 	bucketFound = true
 	stopCh := make(chan struct{})
 	go func() {
-		err = cntl.Run(0, 0, stopCh)
+		err = cntl.Run(1, 1, stopCh)
 	}()
 	time.Sleep(1 * time.Second)
 	close(stopCh)
@@ -850,7 +1069,7 @@ func TestControllerRun(t *testing.T) {
 	bucketFound = false
 	stopCh = make(chan struct{})
 	go func() {
-		err = cntl.Run(0, 0, stopCh)
+		err = cntl.Run(1, 1, stopCh)
 	}()
 	time.Sleep(1 * time.Second)
 	close(stopCh)

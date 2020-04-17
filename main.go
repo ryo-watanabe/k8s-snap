@@ -35,19 +35,19 @@ import (
 )
 
 var (
-	masterURL               string
-	kubeconfig              string
-	namespace               string
-	snapshotthreads         int
-	restorethreads          int
-	housekeepstore          bool
-	restoresnapshots        bool
-	validatefileinfo        bool
-	insecure                bool
-	createbucket            bool
-	maxretryelaspsedminutes int
-	version                 string
-	revision                string
+	masterURL          string
+	kubeconfig         string
+	namespace          string
+	snapshotthreads    int
+	restorethreads     int
+	housekeepstore     bool
+	restoresnapshots   bool
+	validatefileinfo   bool
+	insecure           bool
+	createbucket       bool
+	maxretryelapsedsec int
+	version            string
+	revision           string
 )
 
 func main() {
@@ -105,7 +105,7 @@ func main() {
 		cbInformerFactory.Clustersnapshot().V1alpha1().Restores(),
 		namespace,
 		housekeepstore, restoresnapshots, validatefileinfo, insecure, createbucket,
-		maxretryelaspsedminutes,
+		maxretryelapsedsec,
 		cluster.NewClusterCmd(),
 	)
 
@@ -129,5 +129,5 @@ func init() {
 	flag.BoolVar(&validatefileinfo, "validatefileinfo", true, "Validate size and timestamp of files on object store")
 	flag.BoolVar(&insecure, "insecure", false, "Skip ssl certificate verification on connecting object store")
 	flag.BoolVar(&createbucket, "createbucket", false, "Create bucket if not exists")
-	flag.IntVar(&maxretryelaspsedminutes, "maxretryelaspsedminutes", 5, "Max elaspsed minutes to retry snapshot")
+	flag.IntVar(&maxretryelapsedsec, "maxretryelapsedsec", 300, "Max elaspsed seconds to retry snapshot")
 }

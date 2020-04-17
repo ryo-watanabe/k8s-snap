@@ -67,7 +67,7 @@ type Controller struct {
 	insecure         bool
 	createbucket     bool
 
-	maxretryelaspsedminutes int
+	maxretryelapsedsec int
 
 	namespace string
 	labels    map[string]string
@@ -85,7 +85,7 @@ func NewController(
 	restoreInformer informers.RestoreInformer,
 	namespace string,
 	housekeepstore, restoresnapshots, validatefileinfo, insecure, createbucket bool,
-	maxretryelaspsedminutes int,
+	maxretryelapsedsec int,
 	clusterCmd cluster.Cluster) *Controller {
 	//bucket *objectstore.Bucket) *Controller {
 
@@ -100,23 +100,23 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:           kubeclientset,
-		cbclientset:             cbclientset,
-		dynamic:                 dynamic,
-		snapshotLister:          snapshotInformer.Lister(),
-		snapshotsSynced:         snapshotInformer.Informer().HasSynced,
-		restoreLister:           restoreInformer.Lister(),
-		restoresSynced:          restoreInformer.Informer().HasSynced,
-		snapshotQueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Snapshots"),
-		restoreQueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Restores"),
-		recorder:                recorder,
-		housekeepstore:          housekeepstore,
-		restoresnapshots:        restoresnapshots,
-		validatefileinfo:        validatefileinfo,
-		insecure:                insecure,
-		createbucket:            createbucket,
-		maxretryelaspsedminutes: maxretryelaspsedminutes,
-		namespace:               namespace,
+		kubeclientset:      kubeclientset,
+		cbclientset:        cbclientset,
+		dynamic:            dynamic,
+		snapshotLister:     snapshotInformer.Lister(),
+		snapshotsSynced:    snapshotInformer.Informer().HasSynced,
+		restoreLister:      restoreInformer.Lister(),
+		restoresSynced:     restoreInformer.Informer().HasSynced,
+		snapshotQueue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Snapshots"),
+		restoreQueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Restores"),
+		recorder:           recorder,
+		housekeepstore:     housekeepstore,
+		restoresnapshots:   restoresnapshots,
+		validatefileinfo:   validatefileinfo,
+		insecure:           insecure,
+		createbucket:       createbucket,
+		maxretryelapsedsec: maxretryelapsedsec,
+		namespace:          namespace,
 		labels: map[string]string{
 			"app":        "k8s-snap",
 			"controller": "k8s-snap-controller",

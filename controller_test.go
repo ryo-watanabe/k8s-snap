@@ -1,14 +1,14 @@
 package main
 
 import (
-	"fmt"
 	"flag"
+	"fmt"
 	"os"
 	"reflect"
 	"testing"
 	"time"
 
-	"k8s.io/klog"
+	"github.com/cenkalti/backoff"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,7 +21,7 @@ import (
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"github.com/cenkalti/backoff"
+	"k8s.io/klog"
 
 	clustersnapshot "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
 	informers "github.com/ryo-watanabe/k8s-snap/pkg/client/informers/externalversions"
@@ -493,18 +493,21 @@ type mockCluster struct {
 
 // Snapshot for fake cluster interface
 var snapshotErr error
+
 func (c *mockCluster) Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 	return snapshotErr
 }
 
 // UploadSnapshot for fake cluster interface
 var uploadErr error
+
 func (c *mockCluster) UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket objectstore.Objectstore) error {
 	return uploadErr
 }
 
 // Restore for fake cluster interface
 var restoreErr error
+
 func (c *mockCluster) Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket objectstore.Objectstore) error {
 	return restoreErr
 }
@@ -818,6 +821,7 @@ func (b bucketMock) GetBucketName() string {
 }
 
 var bucketFound bool
+
 func (b bucketMock) ChkBucket() (bool, error) {
 	return bucketFound, nil
 }
@@ -827,18 +831,21 @@ func (b bucketMock) CreateBucket() error {
 }
 
 var deleteFilename string
+
 func (b bucketMock) Delete(filename string) error {
 	deleteFilename = filename
 	return nil
 }
 
 var downloadFilename string
+
 func (b bucketMock) Download(file *os.File, filename string) error {
 	downloadFilename = filename
 	return nil
 }
 
 var objectInfoList []objectstore.ObjectInfo
+
 func (b bucketMock) ListObjectInfo() ([]objectstore.ObjectInfo, error) {
 	return objectInfoList, nil
 }
@@ -851,7 +858,7 @@ func newBucketTestController(t *testing.T, snapshots []*clustersnapshot.Snapshot
 	f := newFixture(t)
 	f.objects = append(f.objects, newObjectstoreConfig())
 	f.kubeobjects = append(f.kubeobjects, newCloudCredentialSecret())
-	for _, snap := range(snapshots) {
+	for _, snap := range snapshots {
 		f.objects = append(f.objects, snap)
 		f.snapshotLister = append(f.snapshotLister, snap)
 	}
@@ -1029,7 +1036,7 @@ func TestControllerRun(t *testing.T) {
 	ns := &corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Namespace"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "default",
+			Name: "default",
 		},
 	}
 	config := newObjectstoreConfig()

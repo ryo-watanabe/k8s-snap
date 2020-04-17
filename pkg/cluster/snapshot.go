@@ -99,7 +99,7 @@ func Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 	return SnapshotWithClient(snapshot, kubeClient, dynamicClient)
 }
 
-// Snapshot k8s resources
+// SnapshotWithClient takes a snapshot of k8s resources
 func SnapshotWithClient(
 	snapshot *cbv1alpha1.Snapshot,
 	kubeClient kubernetes.Interface,

@@ -13,9 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
-
 	//"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
-	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
+	//"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
 )
 
 // runWorker is a long-running function that will continually call the
@@ -97,7 +96,7 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 	if snapshot.Status.Phase == "InProgress" {
 
 		// check timestamp just in case
-		retryend := metav1.NewTime(snapshot.ObjectMeta.CreationTimestamp.Add(time.Duration(c.maxretryelaspsedminutes+1) * time.Minute))
+		retryend := metav1.NewTime(snapshot.ObjectMeta.CreationTimestamp.Add(time.Duration(c.maxretryelapsedsec+1) * time.Second))
 		nowTime := metav1.NewTime(time.Now())
 		if retryend.Before(&nowTime) {
 			snapshot, err = c.updateSnapshotStatus(snapshot, "Failed", "Controller stopped while taking the snapshot")
@@ -115,7 +114,7 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 		}
 
 		// bucket
-		bucket, err := c.getBucket(snapshot.Spec.ObjectstoreConfig)
+		bucket, err := c.getBucket(c.namespace, snapshot.Spec.ObjectstoreConfig, c.kubeclientset, c.cbclientset, c.insecure)
 		if err != nil {
 			snapshot, err = c.updateSnapshotStatus(snapshot, "Failed", err.Error())
 			if err != nil {
@@ -123,11 +122,11 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 			}
 			return nil
 		}
-		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s", bucket.Name, bucket.Endpoint, bucket.BucketName)
+		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s", bucket.GetName(), bucket.GetEndpoint(), bucket.GetBucketName())
 
 		// do snapshot with backoff retry
 		b := backoff.NewExponentialBackOff()
-		b.MaxElapsedTime = time.Duration(c.maxretryelaspsedminutes) * time.Minute
+		b.MaxElapsedTime = time.Duration(c.maxretryelapsedsec) * time.Second
 		b.RandomizationFactor = 0.2
 		b.Multiplier = 2.0
 		b.InitialInterval = 2 * time.Second
@@ -283,7 +282,7 @@ func (c *Controller) deleteSnapshot(obj interface{}) {
 		return
 	}
 
-	bucket, err := c.getBucket(snapshot.Spec.ObjectstoreConfig)
+	bucket, err := c.getBucket(c.namespace, snapshot.Spec.ObjectstoreConfig, c.kubeclientset, c.cbclientset, c.insecure)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -295,24 +294,4 @@ func (c *Controller) deleteSnapshot(obj interface{}) {
 	if err != nil {
 		runtime.HandleError(err)
 	}
-}
-
-func (c *Controller) getBucket(objectstoreConfig string) (*objectstore.Bucket, error) {
-	// bucket
-	osConfig, err := c.cbclientset.ClustersnapshotV1alpha1().ObjectstoreConfigs(c.namespace).Get(
-		objectstoreConfig, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	// cloud credentials secret
-	cred, err := c.kubeclientset.CoreV1().Secrets(c.namespace).Get(
-		osConfig.Spec.CloudCredentialSecret, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	bucket := objectstore.NewBucket(osConfig.ObjectMeta.Name, string(cred.Data["accesskey"]),
-		string(cred.Data["secretkey"]), osConfig.Spec.Endpoint, osConfig.Spec.Region, osConfig.Spec.Bucket, c.insecure)
-
-	return bucket, nil
 }

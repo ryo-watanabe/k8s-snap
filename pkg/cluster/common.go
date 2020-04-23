@@ -16,8 +16,8 @@ import (
 // Cluster interfaces for taking and restoring snapshot of k8s clusters
 type Cluster interface {
 	Snapshot(snapshot *cbv1alpha1.Snapshot) error
-	UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket *objectstore.Bucket) error
-	Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket *objectstore.Bucket) error
+	UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket objectstore.Objectstore) error
+	Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket objectstore.Objectstore) error
 }
 
 // Cmd for execute cluster commands
@@ -35,12 +35,12 @@ func (c *Cmd) Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 }
 
 // UploadSnapshot uploads the snapshot data to the object store bucket
-func (c *Cmd) UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket *objectstore.Bucket) error {
+func (c *Cmd) UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket objectstore.Objectstore) error {
 	return UploadSnapshot(snapshot, bucket)
 }
 
 // Restore restores snapshot data on a cluster
-func (c *Cmd) Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket *objectstore.Bucket) error {
+func (c *Cmd) Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket objectstore.Objectstore) error {
 	return Restore(restore, pref, bucket)
 }
 
@@ -83,7 +83,7 @@ func buildDynamicClient(kubeconfig string) (dynamic.Interface, error) {
 }
 
 // ConfigMapMarker creates and deletes a config map to get a marker for Resource Version
-func ConfigMapMarker(kubeClient *kubernetes.Clientset, name string) (*corev1.ConfigMap, error) {
+func ConfigMapMarker(kubeClient kubernetes.Interface, name string) (*corev1.ConfigMap, error) {
 	configMap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",

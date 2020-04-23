@@ -67,12 +67,13 @@ type Controller struct {
 	insecure         bool
 	createbucket     bool
 
-	maxretryelaspsedminutes int
+	maxretryelapsedsec int
 
 	namespace string
 	labels    map[string]string
 
 	clusterCmd cluster.Cluster
+	getBucket  func(namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error)
 }
 
 // NewController returns a new controller
@@ -84,7 +85,7 @@ func NewController(
 	restoreInformer informers.RestoreInformer,
 	namespace string,
 	housekeepstore, restoresnapshots, validatefileinfo, insecure, createbucket bool,
-	maxretryelaspsedminutes int,
+	maxretryelapsedsec int,
 	clusterCmd cluster.Cluster) *Controller {
 	//bucket *objectstore.Bucket) *Controller {
 
@@ -99,28 +100,29 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:           kubeclientset,
-		cbclientset:             cbclientset,
-		dynamic:                 dynamic,
-		snapshotLister:          snapshotInformer.Lister(),
-		snapshotsSynced:         snapshotInformer.Informer().HasSynced,
-		restoreLister:           restoreInformer.Lister(),
-		restoresSynced:          restoreInformer.Informer().HasSynced,
-		snapshotQueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Snapshots"),
-		restoreQueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Restores"),
-		recorder:                recorder,
-		housekeepstore:          housekeepstore,
-		restoresnapshots:        restoresnapshots,
-		validatefileinfo:        validatefileinfo,
-		insecure:                insecure,
-		createbucket:            createbucket,
-		maxretryelaspsedminutes: maxretryelaspsedminutes,
-		namespace:               namespace,
+		kubeclientset:      kubeclientset,
+		cbclientset:        cbclientset,
+		dynamic:            dynamic,
+		snapshotLister:     snapshotInformer.Lister(),
+		snapshotsSynced:    snapshotInformer.Informer().HasSynced,
+		restoreLister:      restoreInformer.Lister(),
+		restoresSynced:     restoreInformer.Informer().HasSynced,
+		snapshotQueue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Snapshots"),
+		restoreQueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Restores"),
+		recorder:           recorder,
+		housekeepstore:     housekeepstore,
+		restoresnapshots:   restoresnapshots,
+		validatefileinfo:   validatefileinfo,
+		insecure:           insecure,
+		createbucket:       createbucket,
+		maxretryelapsedsec: maxretryelapsedsec,
+		namespace:          namespace,
 		labels: map[string]string{
 			"app":        "k8s-snap",
 			"controller": "k8s-snap-controller",
 		},
 		clusterCmd: clusterCmd,
+		getBucket:  getBucketFunc,
 	}
 
 	klog.Info("Setting up event handlers")
@@ -170,21 +172,12 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 		klog.Fatalf("List Objectstore Config error : %s", err.Error())
 	}
 	for _, os := range osConfigs.Items {
-		// Credentials secret
-		cred, err := c.kubeclientset.CoreV1().Secrets(c.namespace).Get(os.Spec.CloudCredentialSecret, metav1.GetOptions{})
+
+		bucket, err := c.getBucket(c.namespace, os.ObjectMeta.Name, c.kubeclientset, c.cbclientset, c.insecure)
 		if err != nil {
-			klog.Fatalf("Get secret %s error : %s", os.Spec.CloudCredentialSecret, err.Error())
+			klog.Fatalf("Get bucket error for ObjectstoreConfig %s * %s", os.ObjectMeta.Name, err.Error())
 		}
-		bucket := objectstore.NewBucket(
-			os.ObjectMeta.Name,
-			string(cred.Data["accesskey"]),
-			string(cred.Data["secretkey"]),
-			os.Spec.Endpoint,
-			os.Spec.Region,
-			os.Spec.Bucket,
-			c.insecure,
-		)
-		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s", bucket.Name, bucket.Endpoint, bucket.BucketName)
+		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s", bucket.GetName(), bucket.GetEndpoint(), bucket.GetBucketName())
 
 		found, err := bucket.ChkBucket()
 		if err != nil {
@@ -192,13 +185,13 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 		}
 		if !found {
 			if c.createbucket {
-				klog.Infof("Creating bucket %s", bucket.BucketName)
+				klog.Infof("Creating bucket %s", bucket.GetBucketName())
 				err = bucket.CreateBucket()
 				if err != nil {
 					klog.Fatalf("Create bucket error : %s", err.Error())
 				}
 			} else {
-				klog.Fatalf("Bucket %s not found", bucket.BucketName)
+				klog.Fatalf("Bucket %s not found", bucket.GetBucketName())
 			}
 		}
 
@@ -206,7 +199,7 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 		if err != nil {
 			klog.Fatalf("List objects error : %s", err.Error())
 		}
-		klog.Infof("-- Objects in bucket %s:", bucket.BucketName)
+		klog.Infof("-- Objects in bucket %s:", bucket.GetBucketName())
 		for _, obj := range objList {
 			klog.Infof("--- filename:%s size:%d timestamp:%s", obj.Name, obj.Size, obj.Timestamp)
 		}
@@ -248,4 +241,24 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 	klog.Info("Shutting down workers")
 
 	return nil
+}
+
+func getBucketFunc(namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error) {
+	// bucket
+	osConfig, err := client.ClustersnapshotV1alpha1().ObjectstoreConfigs(namespace).Get(
+		objectstoreConfig, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// cloud credentials secret
+	cred, err := kubeclient.CoreV1().Secrets(namespace).Get(
+		osConfig.Spec.CloudCredentialSecret, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	bucket := objectstore.NewBucket(osConfig.ObjectMeta.Name, string(cred.Data["accesskey"]),
+		string(cred.Data["secretkey"]), osConfig.Spec.Endpoint, osConfig.Spec.Region, osConfig.Spec.Bucket, insecure)
+
+	return bucket, nil
 }

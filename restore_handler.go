@@ -13,7 +13,6 @@ import (
 	"k8s.io/klog"
 
 	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
-	"github.com/ryo-watanabe/k8s-snap/pkg/cluster"
 	"github.com/ryo-watanabe/k8s-snap/pkg/objectstore"
 )
 
@@ -150,7 +149,7 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 		}
 
 		// do restore
-		err = cluster.Restore(restore, pref, bucket)
+		err = c.clusterCmd.Restore(restore, pref, bucket)
 		if err != nil {
 			restore, err = c.updateRestoreStatus(restore, "Failed", err.Error())
 			if err != nil {

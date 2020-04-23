@@ -19,6 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
 	cbv1alpha1 "github.com/ryo-watanabe/k8s-snap/pkg/apis/clustersnapshot/v1alpha1"
@@ -28,24 +30,6 @@ import (
 
 func matchVerbs(groupVersion string, r *metav1.APIResource) bool {
 	return discovery.SupportsAllVerbs{Verbs: []string{"list", "create", "get", "delete"}}.Match(groupVersion, r)
-}
-
-func makeResourcePath(snapshotName, group, version, resourceName, namespace, name string) string {
-
-	// Namespace resources stored on top level.
-	if resourceName == "namespaces" {
-		return filepath.Join(snapshotName, "namespaces", name)
-	}
-
-	// Other resources stored same as api path.
-	nspath := ""
-	if namespace != "" {
-		nspath = "namespaces"
-	}
-	if group == "" {
-		return filepath.Join(snapshotName, "api", version, nspath, namespace, resourceName, name)
-	}
-	return filepath.Join(snapshotName, "apis", group, version, nspath, namespace, resourceName, name)
 }
 
 func isOlderValidResourceVersion(rv, refrv string) bool {
@@ -100,18 +84,33 @@ func apiPermError(error string) bool {
 // Snapshot k8s resources
 func Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 
-	// Snapshot log
-	blog := utils.NewNamedLog("snapshot:" + snapshot.ObjectMeta.Name)
-
-	// kubeClient for exxternal cluster.
+	// kubeClient for external cluster.
 	kubeClient, err := buildKubeClient(snapshot.Spec.Kubeconfig)
 	if err != nil {
 		return err
 	}
 
+	// DynamicClient for external cluster.
+	dynamicClient, err := buildDynamicClient(snapshot.Spec.Kubeconfig)
+	if err != nil {
+		return err
+	}
+
+	return SnapshotWithClient(snapshot, kubeClient, dynamicClient)
+}
+
+// SnapshotWithClient takes a snapshot of k8s resources
+func SnapshotWithClient(
+	snapshot *cbv1alpha1.Snapshot,
+	kubeClient kubernetes.Interface,
+	dynamicClient dynamic.Interface) error {
+
+	// Snapshot log
+	blog := utils.NewNamedLog("snapshot:" + snapshot.ObjectMeta.Name)
+
 	discoveryClient := kubeClient.Discovery()
 
-	spr, err := discoveryClient.ServerPreferredResources()
+	spr, err := discoveryClient.ServerResources()
 	if err != nil {
 
 		// This is the first time that k8s api of  target cluster accessed
@@ -122,12 +121,6 @@ func Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 		return fmt.Errorf("Get server preferred resources failed : %s", err.Error())
 	}
 	resources := discovery.FilteredBy(discovery.ResourcePredicateFunc(matchVerbs), spr)
-
-	// DynamicClient for exxternal cluster.
-	dynamicClient, err := buildDynamicClient(snapshot.Spec.Kubeconfig)
-	if err != nil {
-		return err
-	}
 
 	blog.Info("Backing up resources")
 
@@ -211,11 +204,12 @@ func Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 	blog.Infof("Start resource version : %s", startRV)
 	blog.Infof("End resource version   : %s", endRV)
 
-	// Stop watch resources
+	// Stop watch resources and wait few seconds for running goroutines exiting
 	stopWatch(eventsWatch)
+	time.Sleep(3 * time.Second)
 
 	// Sync resources
-	blog.Info("Syncing modified resources:")
+	blog.Infof("Syncing modified resources: %d events", len(watchEventList))
 	for _, e := range watchEventList {
 		item, ok := e.Object.(*unstructured.Unstructured)
 		if ok {
@@ -373,7 +367,7 @@ func objectstorePermError(error string) bool {
 }
 
 // UploadSnapshot uploads a snapshot tgz file to the bucket
-func UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket *objectstore.Bucket) error {
+func UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket objectstore.Objectstore) error {
 
 	// Snapshot log
 	blog := utils.NewNamedLog("snapshot:" + snapshot.ObjectMeta.Name)

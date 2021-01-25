@@ -55,7 +55,7 @@ func (in *ObjectstoreConfig) DeepCopyObject() runtime.Object {
 func (in *ObjectstoreConfigList) DeepCopyInto(out *ObjectstoreConfigList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]ObjectstoreConfig, len(*in))
@@ -132,7 +132,7 @@ func (in *Restore) DeepCopyObject() runtime.Object {
 func (in *RestoreList) DeepCopyInto(out *RestoreList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]Restore, len(*in))
@@ -192,7 +192,7 @@ func (in *RestorePreference) DeepCopyObject() runtime.Object {
 func (in *RestorePreferenceList) DeepCopyInto(out *RestorePreferenceList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]RestorePreference, len(*in))
@@ -361,7 +361,7 @@ func (in *Snapshot) DeepCopyObject() runtime.Object {
 func (in *SnapshotList) DeepCopyInto(out *SnapshotList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]Snapshot, len(*in))

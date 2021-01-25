@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -73,7 +74,7 @@ type Controller struct {
 	labels    map[string]string
 
 	clusterCmd cluster.Cluster
-	getBucket  func(namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error)
+	getBucket  func(ctx context.Context, namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error)
 }
 
 // NewController returns a new controller
@@ -157,8 +158,11 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 	defer c.snapshotQueue.ShutDown()
 	defer c.restoreQueue.ShutDown()
 
+	// context for controller run
+	ctx := context.TODO()
+
 	klog.Info("Checking namespace")
-	_, err := c.kubeclientset.CoreV1().Namespaces().Get(c.namespace, metav1.GetOptions{})
+	_, err := c.kubeclientset.CoreV1().Namespaces().Get(ctx, c.namespace, metav1.GetOptions{})
 	if err != nil {
 		klog.Fatalf("Namespace %s not exist", c.namespace)
 	}
@@ -167,13 +171,13 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 	//klog.Info("Checking CRDs")
 
 	klog.Info("Checking objectstore buckets")
-	osConfigs, err := c.cbclientset.ClustersnapshotV1alpha1().ObjectstoreConfigs(c.namespace).List(metav1.ListOptions{})
+	osConfigs, err := c.cbclientset.ClustersnapshotV1alpha1().ObjectstoreConfigs(c.namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		klog.Fatalf("List Objectstore Config error : %s", err.Error())
 	}
 	for _, os := range osConfigs.Items {
 
-		bucket, err := c.getBucket(c.namespace, os.ObjectMeta.Name, c.kubeclientset, c.cbclientset, c.insecure)
+		bucket, err := c.getBucket(ctx, c.namespace, os.ObjectMeta.Name, c.kubeclientset, c.cbclientset, c.insecure)
 		if err != nil {
 			klog.Fatalf("Get bucket error for ObjectstoreConfig %s * %s", os.ObjectMeta.Name, err.Error())
 		}
@@ -243,17 +247,15 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 	return nil
 }
 
-func getBucketFunc(namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error) {
+func getBucketFunc(ctx context.Context, namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error) {
 	// bucket
-	osConfig, err := client.ClustersnapshotV1alpha1().ObjectstoreConfigs(namespace).Get(
-		objectstoreConfig, metav1.GetOptions{})
+	osConfig, err := client.ClustersnapshotV1alpha1().ObjectstoreConfigs(namespace).Get(ctx, objectstoreConfig, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
 	// cloud credentials secret
-	cred, err := kubeclient.CoreV1().Secrets(namespace).Get(
-		osConfig.Spec.CloudCredentialSecret, metav1.GetOptions{})
+	cred, err := kubeclient.CoreV1().Secrets(namespace).Get(ctx, osConfig.Spec.CloudCredentialSecret, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -262,3 +264,4 @@ func getBucketFunc(namespace, objectstoreConfig string, kubeclient kubernetes.In
 
 	return bucket, nil
 }
+

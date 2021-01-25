@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"context"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -15,7 +16,7 @@ import (
 
 // Cluster interfaces for taking and restoring snapshot of k8s clusters
 type Cluster interface {
-	Snapshot(snapshot *cbv1alpha1.Snapshot) error
+	Snapshot(ctx context.Context, snapshot *cbv1alpha1.Snapshot) error
 	UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket objectstore.Objectstore) error
 	Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket objectstore.Objectstore) error
 }
@@ -30,8 +31,8 @@ func NewClusterCmd() *Cmd {
 }
 
 // Snapshot take a snapshot
-func (c *Cmd) Snapshot(snapshot *cbv1alpha1.Snapshot) error {
-	return Snapshot(snapshot)
+func (c *Cmd) Snapshot(ctx context.Context, snapshot *cbv1alpha1.Snapshot) error {
+	return Snapshot(ctx, snapshot)
 }
 
 // UploadSnapshot uploads the snapshot data to the object store bucket
@@ -83,7 +84,7 @@ func buildDynamicClient(kubeconfig string) (dynamic.Interface, error) {
 }
 
 // ConfigMapMarker creates and deletes a config map to get a marker for Resource Version
-func ConfigMapMarker(kubeClient kubernetes.Interface, name string) (*corev1.ConfigMap, error) {
+func ConfigMapMarker(ctx context.Context, kubeClient kubernetes.Interface, name string) (*corev1.ConfigMap, error) {
 	configMap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -94,11 +95,11 @@ func ConfigMapMarker(kubeClient kubernetes.Interface, name string) (*corev1.Conf
 			Namespace: "default",
 		},
 	}
-	configMap, err := kubeClient.CoreV1().ConfigMaps("default").Create(configMap)
+	configMap, err := kubeClient.CoreV1().ConfigMaps("default").Create(ctx, configMap, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
-	err = kubeClient.CoreV1().ConfigMaps("default").Delete(name, &metav1.DeleteOptions{})
+	err = kubeClient.CoreV1().ConfigMaps("default").Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -140,3 +141,4 @@ func getUnstructuredString(obj map[string]interface{}, name string) string {
 	}
 	return s
 }
+

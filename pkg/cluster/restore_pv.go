@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -17,9 +18,9 @@ import (
 )
 
 // Check PV status->phase
-func isPVBound(pvName string, dyn dynamic.Interface, rlog *utils.NamedLog) (bool, error) {
+func isPVBound(ctx context.Context, pvName string, dyn dynamic.Interface, rlog *utils.NamedLog) (bool, error) {
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}
-	pvItem, err := dyn.Resource(gvr).Get(pvName, metav1.GetOptions{})
+	pvItem, err := dyn.Resource(gvr).Get(ctx, pvName, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -36,7 +37,7 @@ func isPVBound(pvName string, dyn dynamic.Interface, rlog *utils.NamedLog) (bool
 }
 
 // Restore PV/PVC boundings one by one
-func restorePV(dir string, dyn dynamic.Interface, p *preference,
+func restorePV(ctx context.Context, dir string, dyn dynamic.Interface, p *preference,
 	restore *cbv1alpha1.Restore, rlog *utils.NamedLog) error {
 
 	pvcfiles, err := ioutil.ReadDir(filepath.Join(dir, "PVC"))
@@ -112,7 +113,7 @@ func restorePV(dir string, dyn dynamic.Interface, p *preference,
 		pvItem.Object["status"] = nil
 		pvItem.SetResourceVersion("")
 		pvItem.SetUID("")
-		_, err = createItem(&pvItem, dyn)
+		_, err = createItem(ctx, &pvItem, dyn)
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
 				alreadyExist(restore, rlog, pvItem.GetSelfLink())
@@ -133,7 +134,7 @@ func restorePV(dir string, dyn dynamic.Interface, p *preference,
 		annotations := pvcItem.GetAnnotations()
 		delete(annotations, "pv.kubernetes.io/bind-completed")
 		pvcItem.SetAnnotations(annotations)
-		_, err = createItem(&pvcItem, dyn)
+		_, err = createItem(ctx, &pvcItem, dyn)
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
 				alreadyExist(restore, rlog, pvcItem.GetSelfLink())
@@ -152,7 +153,7 @@ func restorePV(dir string, dyn dynamic.Interface, p *preference,
 			if count >= timeout {
 				return fmt.Errorf("Timeout : waiting for PV/PVC bound %s", pvItem.GetName())
 			}
-			bound, err := isPVBound(pvItem.GetName(), dyn, rlog)
+			bound, err := isPVBound(ctx, pvItem.GetName(), dyn, rlog)
 			if err != nil {
 				return err
 			}
@@ -166,3 +167,4 @@ func restorePV(dir string, dyn dynamic.Interface, p *preference,
 	}
 	return nil
 }
+

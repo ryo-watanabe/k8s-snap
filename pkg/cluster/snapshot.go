@@ -3,6 +3,7 @@ package cluster
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -82,7 +83,7 @@ func apiPermError(error string) bool {
 }
 
 // Snapshot k8s resources
-func Snapshot(snapshot *cbv1alpha1.Snapshot) error {
+func Snapshot(ctx context.Context, snapshot *cbv1alpha1.Snapshot) error {
 
 	// kubeClient for external cluster.
 	kubeClient, err := buildKubeClient(snapshot.Spec.Kubeconfig)
@@ -96,11 +97,12 @@ func Snapshot(snapshot *cbv1alpha1.Snapshot) error {
 		return err
 	}
 
-	return SnapshotWithClient(snapshot, kubeClient, dynamicClient)
+	return SnapshotWithClient(ctx, snapshot, kubeClient, dynamicClient)
 }
 
 // SnapshotWithClient takes a snapshot of k8s resources
 func SnapshotWithClient(
+	ctx context.Context,
 	snapshot *cbv1alpha1.Snapshot,
 	kubeClient kubernetes.Interface,
 	dynamicClient dynamic.Interface) error {
@@ -136,7 +138,7 @@ func SnapshotWithClient(
 	markerName := "resource-version-marker-" + utils.RandString(10)
 
 	// Get start resource version
-	marker, err := ConfigMapMarker(kubeClient, markerName)
+	marker, err := ConfigMapMarker(ctx, kubeClient, markerName)
 	if err != nil {
 		return fmt.Errorf("Making start config map marker failed : %s", err.Error())
 	}
@@ -158,14 +160,14 @@ func SnapshotWithClient(
 
 			// Get list of a resource
 			gvr := gv.WithResource(resource.Name)
-			unstructuredList, err := dynamicClient.Resource(gvr).List(metav1.ListOptions{})
+			unstructuredList, err := dynamicClient.Resource(gvr).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return fmt.Errorf("Get resource %s list failed : %s", resource.Name, err.Error())
 			}
 
 			// Start watching the resource
 			watchgvr[gvr] = resourceGroup.GroupVersion + "/" + resource.Name
-			eventsWatch[gvr], err = dynamicClient.Resource(gvr).Watch(metav1.ListOptions{ResourceVersion: startRV})
+			eventsWatch[gvr], err = dynamicClient.Resource(gvr).Watch(ctx, metav1.ListOptions{ResourceVersion: startRV})
 			if err != nil {
 				return fmt.Errorf("Watch resource %s list failed : %s", resource.Name, err.Error())
 			}
@@ -196,7 +198,7 @@ func SnapshotWithClient(
 	}
 
 	// Get end resource version
-	marker, err = ConfigMapMarker(kubeClient, markerName)
+	marker, err = ConfigMapMarker(ctx, kubeClient, markerName)
 	if err != nil {
 		return fmt.Errorf("Making end config map marker failed : %s", err.Error())
 	}
@@ -404,3 +406,4 @@ func UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket objectstore.Objectstor
 
 	return nil
 }
+

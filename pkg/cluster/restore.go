@@ -3,6 +3,7 @@ package cluster
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"io"
 	"io/ioutil"
 	"os"
@@ -43,7 +44,7 @@ func resourceFromSelfLink(selflink string) string {
 }
 
 // Create resource
-func createItem(item *unstructured.Unstructured, dyn dynamic.Interface) (*unstructured.Unstructured, error) {
+func createItem(ctx context.Context, item *unstructured.Unstructured, dyn dynamic.Interface) (*unstructured.Unstructured, error) {
 	gv, err := schema.ParseGroupVersion(item.GetAPIVersion())
 	if err != nil {
 		return nil, err
@@ -51,9 +52,9 @@ func createItem(item *unstructured.Unstructured, dyn dynamic.Interface) (*unstru
 	gvr := gv.WithResource(resourceFromSelfLink(item.GetSelfLink()))
 	ns := item.GetNamespace()
 	if ns == "" {
-		return dyn.Resource(gvr).Create(item, metav1.CreateOptions{})
+		return dyn.Resource(gvr).Create(ctx, item, metav1.CreateOptions{})
 	}
-	return dyn.Resource(gvr).Namespace(ns).Create(item, metav1.CreateOptions{})
+	return dyn.Resource(gvr).Namespace(ns).Create(ctx, item, metav1.CreateOptions{})
 }
 
 func excludeWithMsg(restore *cbv1alpha1.Restore, rlog *utils.NamedLog, selflink, msg string) {
@@ -85,7 +86,7 @@ func failedWithMsg(restore *cbv1alpha1.Restore, rlog *utils.NamedLog, selflink, 
 }
 
 // Restore resources according to preferences.
-func restoreDir(dir, restorePref string, dyn dynamic.Interface, p *preference,
+func restoreDir(ctx context.Context, dir, restorePref string, dyn dynamic.Interface, p *preference,
 	restore *cbv1alpha1.Restore, rlog *utils.NamedLog) error {
 
 	files, err := ioutil.ReadDir(filepath.Join(dir, restorePref))
@@ -144,7 +145,7 @@ func restoreDir(dir, restorePref string, dyn dynamic.Interface, p *preference,
 		// Restore item
 		item.SetResourceVersion("")
 		item.SetUID("")
-		_, err = createItem(&item, dyn)
+		_, err = createItem(ctx, &item, dyn)
 		if err != nil {
 			//p.cntUpCnnotRestore(err.Error())
 			if strings.Contains(err.Error(), "already exists") {
@@ -214,6 +215,9 @@ func restoreResources(
 	pref *cbv1alpha1.RestorePreference,
 	kubeClient kubernetes.Interface,
 	dynamicClient dynamic.Interface) error {
+
+	// context for restore
+	ctx := context.TODO()
 
 	// Restore log
 	rlog := utils.NewNamedLog("restore:" + restore.ObjectMeta.Name)
@@ -300,7 +304,7 @@ func restoreResources(
 	// Restore namespaces
 	if p.isIn("Namespace") {
 		rlog.Info("Restore Namespaces :")
-		err = restoreDir(dir, "Namespace", dynamicClient, p, restore, rlog)
+		err = restoreDir(ctx, dir, "Namespace", dynamicClient, p, restore, rlog)
 		if err != nil {
 			return err
 		}
@@ -308,7 +312,7 @@ func restoreResources(
 	// Restore CRDs
 	if p.isIn("CRD") {
 		rlog.Info("Restore CRDs :")
-		err = restoreDir(dir, "CRD", dynamicClient, p, restore, rlog)
+		err = restoreDir(ctx, dir, "CRD", dynamicClient, p, restore, rlog)
 		if err != nil {
 			return err
 		}
@@ -316,7 +320,7 @@ func restoreResources(
 	// Restore PV/PVC
 	if p.isIn("PV") && p.isIn("PVC") {
 		rlog.Info("Restore PV/PVC :")
-		err = restorePV(dir, dynamicClient, p, restore, rlog)
+		err = restorePV(ctx, dir, dynamicClient, p, restore, rlog)
 		if err != nil {
 			return err
 		}
@@ -324,7 +328,7 @@ func restoreResources(
 	// Other resources
 	if p.isIn("Restore") {
 		rlog.Info("Restore resources except Apps :")
-		err = restoreDir(dir, "Restore", dynamicClient, p, restore, rlog)
+		err = restoreDir(ctx, dir, "Restore", dynamicClient, p, restore, rlog)
 		if err != nil {
 			return err
 		}
@@ -332,7 +336,7 @@ func restoreResources(
 	// Restore apps
 	if p.isIn("App") {
 		rlog.Info("Restore Apps :")
-		err = restoreDir(dir, "App", dynamicClient, p, restore, rlog)
+		err = restoreDir(ctx, dir, "App", dynamicClient, p, restore, rlog)
 		if err != nil {
 			return err
 		}
@@ -347,7 +351,7 @@ func restoreResources(
 	markerName := "resource-version-marker-" + utils.RandString(10)
 
 	// Get end resource version
-	marker, err := ConfigMapMarker(kubeClient, markerName)
+	marker, err := ConfigMapMarker(ctx, kubeClient, markerName)
 	if err != nil {
 		return err
 	}
@@ -378,3 +382,4 @@ func restoreResources(
 
 	return nil
 }
+

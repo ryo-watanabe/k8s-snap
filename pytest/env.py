@@ -1,17 +1,17 @@
 
 class Env:
 	token = "TOKEN"
-	groupname = 'clustersnapshot.hatoba'
+	groupname = 'clustersnapshot.rywt.io'
 	namespace = 'snapshot-test'
 	secret = 'cloud-credential'
 	accesskey_encoded = "bWluaW8="
 	secretkey_encoded = "bWluaW8xMjM="
-	url_base = 'https://kubernetes.default'
+	url_base = 'https://111.10.0.1:6443'
 	objectstoreconfig = "objectstoreconfig"
 	region = "jp-east-2"
 	bucket = "k8s-snap"
 	image = "IMAGE"
-	deploy = "hatoba-snapshot-controller"
+	deploy = "k8s-snap"
 	targetname = "target-cluster"
 	accesskey = "minio"
 	secretkey = "minio123"
@@ -23,8 +23,7 @@ class Env:
 	testappimage = "nginx"
 	testappdeploy = "nginx-test"
 	preference = "exclude-existing"
-	dockerconfigjson = "DOCKERCONFIGJSON"
-	command = "hatoba-snapshot-controller"
+	command = "k8s-snap"
 	nfsdeploy = "nfs"
 	nfsclusterip = "10.43.0.101"
 	nfsimage = "itsthenetwork/nfs-server-alpine"

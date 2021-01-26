@@ -64,25 +64,19 @@ def test_wait_pv_testapp_statefulset_ready():
 	assert k8s_wait_app_ready('/apis/apps/v1/namespaces/' + env.pvtestappns + '/statefulsets/' + env.testappdeploy, 3)
 
 def test_get_pod0_content():
-	ip = k8s_get_pod_ip('/api/v1/namespaces/' + env.pvtestappns + '/pods/' + env.testappdeploy + '-0')
-	print('pod0 IP:' + ip, end=" ")
-	(code, body) = http_get('http://' + ip)
+	(code, body) = k8s_api_get('/api/v1/namespaces/' + env.pvtestappns + '/pods/' + env.testappdeploy + '-0/proxy')
 	assert code == 200
 	env.set('pod0content', body.decode('utf-8'))
 	print('pod0 content:' + env.pod0content, end=" ")
 
 def test_get_pod1_content():
-	ip = k8s_get_pod_ip('/api/v1/namespaces/' + env.pvtestappns + '/pods/' + env.testappdeploy + '-1')
-	print('pod1 IP:' + ip, end=" ")
-	(code, body) = http_get('http://' + ip)
+	(code, body) = k8s_api_get('/api/v1/namespaces/' + env.pvtestappns + '/pods/' + env.testappdeploy + '-1/proxy')
 	assert code == 200
 	env.set('pod1content', body.decode('utf-8'))
 	print('pod1 content:' + env.pod1content, end=" ")
 
 def test_get_pod2_content():
-	ip = k8s_get_pod_ip('/api/v1/namespaces/' + env.pvtestappns + '/pods/' + env.testappdeploy + '-2')
-	print('pod2 IP:' + ip, end=" ")
-	(code, body) = http_get('http://' + ip)
+	(code, body) = k8s_api_get('/api/v1/namespaces/' + env.pvtestappns + '/pods/' + env.testappdeploy + '-2/proxy')
 	assert code == 200
 	env.set('pod2content', body.decode('utf-8'))
 	print('pod2 content:' + env.pod2content, end=" ")
@@ -134,27 +128,21 @@ def test_wait_restored_pv_testapp_statefulset_ready():
 	assert k8s_wait_app_ready('/apis/apps/v1/namespaces/' + env.pvtestappns + '/statefulsets/' + env.testappdeploy, 3)
 
 def test_get_restored_pod0_content():
-	ip = k8s_get_pod_ip('/api/v1/namespaces/' + env.pvtestappns + '/pods/' + env.testappdeploy + '-0')
-	print('pod0 IP:' + ip, end=" ")
-	(code, body) = http_get('http://' + ip)
+	(code, body) = k8s_api_get('/api/v1/namespaces/' + env.pvtestappns + '/pods/' + env.testappdeploy + '-0/proxy')
 	assert code == 200
 	content = body.decode('utf-8')
 	print('pod0 content:' + content, end=" ")
 	assert content == env.pod0content
 
 def test_get_restored_pod1_content():
-	ip = k8s_get_pod_ip('/api/v1/namespaces/' + env.pvtestappns + '/pods/' + env.testappdeploy + '-1')
-	print('pod1 IP:' + ip, end=" ")
-	(code, body) = http_get('http://' + ip)
+	(code, body) = k8s_api_get('/api/v1/namespaces/' + env.pvtestappns + '/pods/' + env.testappdeploy + '-1/proxy')
 	assert code == 200
 	content = body.decode('utf-8')
 	print('pod1 content:' + content, end=" ")
 	assert content == env.pod1content
 
 def test_get_restored_pod2_content():
-	ip = k8s_get_pod_ip('/api/v1/namespaces/' + env.pvtestappns + '/pods/' + env.testappdeploy + '-2')
-	print('pod2 IP:' + ip, end=" ")
-	(code, body) = http_get('http://' + ip)
+	(code, body) = k8s_api_get('/api/v1/namespaces/' + env.pvtestappns + '/pods/' + env.testappdeploy + '-2/proxy')
 	assert code == 200
 	content = body.decode('utf-8')
 	print('pod2 content:' + content, end=" ")

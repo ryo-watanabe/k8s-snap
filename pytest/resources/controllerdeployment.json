@@ -32,11 +32,6 @@
                         ],
                         "imagePullPolicy": "Always"
                     }
-                ],
-                "imagePullSecrets": [
-                    {
-                        "name": "myregistrykey"
-                    }
                 ]
             }
         }

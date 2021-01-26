@@ -82,6 +82,25 @@ func apiPermError(error string) bool {
 	return false
 }
 
+func resourceLink(item *unstructured.Unstructured, resourceNames map[schema.GroupVersionKind]string) string {
+	link := "/api/v1"
+	apiversion := item.GetAPIVersion()
+	if apiversion != "v1" {
+		link = "/apis/" + apiversion
+	}
+	namespace := item.GetNamespace()
+	if namespace != "" {
+		link += "/namespaces/" + namespace
+	}
+	gv, err := schema.ParseGroupVersion(apiversion)
+	if err != nil {
+		link += "/groupversionerror/" + item.GetName()
+	} else {
+		link += "/" + resourceNames[gv.WithKind(item.GetKind())] + "/" + item.GetName()
+	}
+	return link
+}
+
 // Snapshot k8s resources
 func Snapshot(ctx context.Context, snapshot *cbv1alpha1.Snapshot) error {
 
@@ -130,6 +149,7 @@ func SnapshotWithClient(
 	watchgvr := make(map[schema.GroupVersionResource]string)
 	snapshotList := make([]unstructured.Unstructured, 0)
 	watchEventList := make([]watch.Event, 0)
+	resourceNames := make(map[schema.GroupVersionKind]string)
 
 	// goroutine gc
 	defer stopWatch(eventsWatch)
@@ -164,6 +184,7 @@ func SnapshotWithClient(
 			if err != nil {
 				return fmt.Errorf("Get resource %s list failed : %s", resource.Name, err.Error())
 			}
+			resourceNames[gv.WithKind(resource.Kind)] = resource.Name
 
 			// Start watching the resource
 			watchgvr[gvr] = resourceGroup.GroupVersion + "/" + resource.Name
@@ -178,11 +199,11 @@ func SnapshotWithClient(
 					if ok {
 						switch e.Type {
 						case watch.Added:
-							klog.V(4).Infof("!!! Resource added : %s - rv:%s", item.GetSelfLink(), item.GetResourceVersion())
+							klog.V(4).Infof("!!! Resource added : %s - rv:%s", resourceLink(item, resourceNames), item.GetResourceVersion())
 						case watch.Modified:
-							klog.V(4).Infof("!!! Resource modified : %s - rv:%s", item.GetSelfLink(), item.GetResourceVersion())
+							klog.V(4).Infof("!!! Resource modified : %s - rv:%s", resourceLink(item, resourceNames), item.GetResourceVersion())
 						case watch.Deleted:
-							klog.V(4).Infof("!!! Resource deleted : %s - rv:%s", item.GetSelfLink(), item.GetResourceVersion())
+							klog.V(4).Infof("!!! Resource deleted : %s - rv:%s", resourceLink(item, resourceNames), item.GetResourceVersion())
 						}
 					}
 					watchEventList = append(watchEventList, e)
@@ -218,12 +239,12 @@ func SnapshotWithClient(
 			message := "unknown type"
 			if !isOlderValidResourceVersion(item.GetResourceVersion(), endRV) {
 				message = "ignored, not older than end resource version"
-				blog.Infof("-- [%s] rv:%s %s - %s", e.Type, item.GetResourceVersion(), item.GetSelfLink(), message)
+				blog.Infof("-- [%s] rv:%s %s - %s", e.Type, item.GetResourceVersion(), resourceLink(item, resourceNames), message)
 				continue
 			}
 			targetIndex := -1
 			for i, u := range snapshotList {
-				if u.GetSelfLink() == item.GetSelfLink() {
+				if resourceLink(&u, resourceNames) == resourceLink(item, resourceNames) {
 					targetIndex = i
 					break
 				}
@@ -250,7 +271,7 @@ func SnapshotWithClient(
 					message = "already deleted"
 				}
 			}
-			blog.Infof("-- [%s] rv:%s %s - %s", e.Type, item.GetResourceVersion(), item.GetSelfLink(), message)
+			blog.Infof("-- [%s] rv:%s %s - %s", e.Type, item.GetResourceVersion(), resourceLink(item, resourceNames), message)
 		} else {
 			blog.Infof("-- [%s] %#v", e.Type, e.Object)
 		}
@@ -273,7 +294,7 @@ func SnapshotWithClient(
 	for _, item := range snapshotList {
 
 		// Resources stored according to api path.
-		itempath := item.GetSelfLink()
+		itempath := resourceLink(&item, resourceNames)
 		// Namespaces and CRDs stored on top level.
 		if item.GetKind() == "Namespace" {
 			itempath = filepath.Join("/namespaces", item.GetName())

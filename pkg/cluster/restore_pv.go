@@ -51,17 +51,18 @@ func restorePV(ctx context.Context, dir string, dyn dynamic.Interface, p *prefer
 		var pvItem unstructured.Unstructured
 
 		// Load PVC item
+		resourcePath := strings.Replace(f.Name(), "|", "/", -1)
 		err := loadItem(&pvcItem, filepath.Join(dir, "PVC", f.Name()))
 		if err != nil {
 			return err
 		}
 
-		rlog.Infof("---- %s", pvcItem.GetSelfLink())
+		rlog.Infof("---- %s", resourcePath)
 
 		// Check storageClassName
 		pvcSpec := getUnstructuredMap(pvcItem.Object, "spec")
 		if pvcSpec == nil {
-			excludeWithMsg(restore, rlog, pvcItem.GetSelfLink(), "no-pvc-spec")
+			excludeWithMsg(restore, rlog, resourcePath, "no-pvc-spec")
 			continue
 		}
 		storageClassName := getUnstructuredString(pvcSpec, "storageClassName")
@@ -69,7 +70,7 @@ func restorePV(ctx context.Context, dir string, dyn dynamic.Interface, p *prefer
 			// Check Annotations
 			annotaionStorageClassName := pvcItem.GetAnnotations()["volume.beta.kubernetes.io/storage-class"]
 			if annotaionStorageClassName == "" || !p.isIncludedStorageClass(annotaionStorageClassName) {
-				excludeWithMsg(restore, rlog, pvcItem.GetSelfLink(), "no-storageclass")
+				excludeWithMsg(restore, rlog, resourcePath, "no-storageclass")
 				continue
 			}
 		}
@@ -77,7 +78,7 @@ func restorePV(ctx context.Context, dir string, dyn dynamic.Interface, p *prefer
 		// Check bounded and PV name
 		volumeName := getUnstructuredString(pvcSpec, "volumeName")
 		if volumeName == "" {
-			excludeWithMsg(restore, rlog, pvcItem.GetSelfLink(), "not-bounded")
+			excludeWithMsg(restore, rlog, resourcePath, "not-bounded")
 			continue
 		}
 
@@ -87,8 +88,10 @@ func restorePV(ctx context.Context, dir string, dyn dynamic.Interface, p *prefer
 			return err
 		}
 		pvFound := false
+		pvResourcePath := ""
 		for _, pvf := range pvfiles {
 			if strings.Contains(pvf.Name(), "|persistentvolumes|"+volumeName+".json") {
+				pvResourcePath = strings.Replace(pvf.Name(), "|", "/", -1)
 				err := loadItem(&pvItem, filepath.Join(dir, "PV", pvf.Name()))
 				if err != nil {
 					return err
@@ -98,7 +101,7 @@ func restorePV(ctx context.Context, dir string, dyn dynamic.Interface, p *prefer
 			}
 		}
 		if !pvFound {
-			excludeWithMsg(restore, rlog, pvcItem.GetSelfLink(), "pv-not-found")
+			excludeWithMsg(restore, rlog, resourcePath, "pv-not-found")
 			continue
 		}
 
@@ -106,23 +109,23 @@ func restorePV(ctx context.Context, dir string, dyn dynamic.Interface, p *prefer
 		rlog.Infof("     Restoring PV %s", pvItem.GetName())
 		pvSpec := getUnstructuredMap(pvItem.Object, "spec")
 		if pvSpec == nil {
-			excludeWithMsg(restore, rlog, pvcItem.GetSelfLink(), "no-pv-spec")
+			excludeWithMsg(restore, rlog, pvResourcePath, "no-pv-spec")
 			continue
 		}
 		pvSpec["claimRef"] = nil
 		pvItem.Object["status"] = nil
 		pvItem.SetResourceVersion("")
 		pvItem.SetUID("")
-		_, err = createItem(ctx, &pvItem, dyn)
+		_, err = createItem(ctx, &pvItem, dyn, pvResourcePath)
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				alreadyExist(restore, rlog, pvItem.GetSelfLink())
+				alreadyExist(restore, rlog, pvResourcePath)
 			} else {
-				failedWithMsg(restore, rlog, pvItem.GetSelfLink(), err.Error())
+				failedWithMsg(restore, rlog, pvResourcePath, err.Error())
 			}
 			continue
 		} else {
-			created(restore, rlog, pvItem.GetSelfLink())
+			created(restore, rlog, pvResourcePath)
 		}
 
 		// Then restore PVC
@@ -134,16 +137,16 @@ func restorePV(ctx context.Context, dir string, dyn dynamic.Interface, p *prefer
 		annotations := pvcItem.GetAnnotations()
 		delete(annotations, "pv.kubernetes.io/bind-completed")
 		pvcItem.SetAnnotations(annotations)
-		_, err = createItem(ctx, &pvcItem, dyn)
+		_, err = createItem(ctx, &pvcItem, dyn, resourcePath)
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				alreadyExist(restore, rlog, pvcItem.GetSelfLink())
+				alreadyExist(restore, rlog, resourcePath)
 			} else {
-				failedWithMsg(restore, rlog, pvcItem.GetSelfLink(), err.Error())
+				failedWithMsg(restore, rlog, resourcePath, err.Error())
 			}
 			continue
 		} else {
-			created(restore, rlog, pvcItem.GetSelfLink())
+			created(restore, rlog, resourcePath)
 		}
 
 		// Wait for bound

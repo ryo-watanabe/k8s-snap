@@ -44,12 +44,12 @@ func resourceFromSelfLink(selflink string) string {
 }
 
 // Create resource
-func createItem(ctx context.Context, item *unstructured.Unstructured, dyn dynamic.Interface) (*unstructured.Unstructured, error) {
+func createItem(ctx context.Context, item *unstructured.Unstructured, dyn dynamic.Interface, selflink string) (*unstructured.Unstructured, error) {
 	gv, err := schema.ParseGroupVersion(item.GetAPIVersion())
 	if err != nil {
 		return nil, err
 	}
-	gvr := gv.WithResource(resourceFromSelfLink(item.GetSelfLink()))
+	gvr := gv.WithResource(resourceFromSelfLink(selflink))
 	ns := item.GetNamespace()
 	if ns == "" {
 		return dyn.Resource(gvr).Create(ctx, item, metav1.CreateOptions{})
@@ -97,17 +97,18 @@ func restoreDir(ctx context.Context, dir, restorePref string, dyn dynamic.Interf
 
 		// Load item
 		var item unstructured.Unstructured
+		resourcePath := strings.Replace(f.Name(), "|", "/", -1)
 		err := loadItem(&item, filepath.Join(dir, restorePref, f.Name()))
 		if err != nil {
 			return err
 		}
 
-		rlog.Infof("---- %s", item.GetSelfLink())
+		rlog.Infof("---- %s", resourcePath)
 
 		// Check owner
 		owners := item.GetOwnerReferences()
 		if len(owners) > 0 {
-			excludeWithMsg(restore, rlog, item.GetSelfLink(), "owner-ref")
+			excludeWithMsg(restore, rlog, resourcePath, "owner-ref")
 			for _, owner := range owners {
 				rlog.Infof("     owner : %s %s", owner.Kind, owner.Name)
 			}
@@ -118,17 +119,17 @@ func restoreDir(ctx context.Context, dir, restorePref string, dyn dynamic.Interf
 		switch item.GetKind() {
 		case "Secret":
 			if getUnstructuredString(item.Object, "type") == "kubernetes.io/service-account-token" {
-				excludeWithMsg(restore, rlog, item.GetSelfLink(), "token-secret")
+				excludeWithMsg(restore, rlog, resourcePath, "token-secret")
 				continue
 			}
 		case "ClusterRole":
 			if !isInList(item.GetName(), p.includedClusterRoles) {
-				excludeWithMsg(restore, rlog, item.GetSelfLink(), "not-binded-to-ns")
+				excludeWithMsg(restore, rlog, resourcePath, "not-binded-to-ns")
 				continue
 			}
 		case "ClusterRoleBinding":
 			if !isInList(item.GetName(), p.includedClusterRoleBindings) {
-				excludeWithMsg(restore, rlog, item.GetSelfLink(), "not-binded-to-ns")
+				excludeWithMsg(restore, rlog, resourcePath, "not-binded-to-ns")
 				continue
 			}
 		case "PersistentVolume":
@@ -137,7 +138,7 @@ func restoreDir(ctx context.Context, dir, restorePref string, dyn dynamic.Interf
 			continue
 		case "Endpoints":
 			if isInList(item.GetNamespace()+"/"+item.GetName(), p.serviceList) {
-				excludeWithMsg(restore, rlog, item.GetSelfLink(), "service-exists")
+				excludeWithMsg(restore, rlog, resourcePath, "service-exists")
 				continue
 			}
 		}
@@ -145,16 +146,16 @@ func restoreDir(ctx context.Context, dir, restorePref string, dyn dynamic.Interf
 		// Restore item
 		item.SetResourceVersion("")
 		item.SetUID("")
-		_, err = createItem(ctx, &item, dyn)
+		_, err = createItem(ctx, &item, dyn, resourcePath)
 		if err != nil {
 			//p.cntUpCnnotRestore(err.Error())
 			if strings.Contains(err.Error(), "already exists") {
-				alreadyExist(restore, rlog, item.GetSelfLink())
+				alreadyExist(restore, rlog, resourcePath)
 			} else {
-				failedWithMsg(restore, rlog, item.GetSelfLink(), err.Error())
+				failedWithMsg(restore, rlog, resourcePath, err.Error())
 			}
 		} else {
-			created(restore, rlog, item.GetSelfLink())
+			created(restore, rlog, resourcePath)
 		}
 	}
 	return nil

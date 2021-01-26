@@ -1,0 +1,14 @@
+{
+    "apiVersion": "{{env.groupname}}/v1alpha1",
+    "kind": "Snapshot",
+    "metadata": {
+        "name": "{{env.targetname}}-002",
+        "namespace": "{{env.namespace}}"
+    },
+    "spec": {
+        "clusterName": "{{env.targetname}}",
+        "kubeconfig": "apiVersion: v1\nclusters:\n- cluster:\n    certificate-authority-data: {{env.cacert}}\n    server: {{env.url_base}}\n  name: kubernetes\ncontexts:\n- context:\n    cluster: kubernetes\n    user: apiuser\n  name: apiuser@kubernetes\ncurrent-context: apiuser@kubernetes\nkind: Config\npreferences: {}\nusers:\n- name: apiuser\n  user:\n    token: {{env.token}}\n",
+        "objectstoreConfig": "{{env.objectstoreconfig}}",
+        "ttl": "1h0m0s"
+    }
+}

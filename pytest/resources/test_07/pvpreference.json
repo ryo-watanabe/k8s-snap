@@ -1,0 +1,61 @@
+{
+    "apiVersion": "{{env.groupname}}/v1alpha1",
+    "kind": "RestorePreference",
+    "metadata": {
+        "name": "{{env.preference}}-pv",
+        "namespace": "{{env.namespace}}"
+    },
+    "spec": {
+        "excludeApiPathes": [
+            "/api/v1,bindings",
+            "/api/v1,componentstatuses",
+            "/api/v1,events",
+            "/api/v1,limitranges",
+            "/api/v1,nodes",
+            "/api/v1,resourcequotas",
+            "/apis/apiregistration.k8s.io",
+            "/apis/extensions,daemonsets",
+            "/apis/extensions,deployments",
+            "/apis/extensions,networkpolicies",
+            "/apis/extensions,podsecuritypolicies",
+            "/apis/extensions,replicasets",
+            "/apis/extensions,replicationcontrollers",
+            "/apis/scheduling.k8s.io",
+            "/apis/events.k8s.io",
+            "/apis/certificates.k8s.io",
+            "/apis/networking.k8s.io",
+            "/apis/admissionregistration.k8s.io",
+            "/apis/authentication.k8s.io",
+            "/apis/authorization.k8s.io",
+            "/apis/crd.projectcalico.org",
+            "/api/v1/namespaces/default/services/kubernetes",
+            "/api/v1/namespaces/default/endpoints/kubernetes",
+            "/apis/rbac.authorization.k8s.io/v1/clusterroles/system%3A",
+            "/apis/rbac.authorization.k8s.io/v1/clusterrolebindings/system%3A",
+            "/apis/crd.projectcalico.org",
+            "/apis/project.cattle.io",
+            "/apis/management.cattle.io"
+        ],
+        "excludeCRDs": [
+            "crd.projectcalico.org",
+            "project.cattle.io",
+            "management.cattle.io"
+        ],
+        "excludeNamespaces": [{{env.residentnamespaces}}],
+        "restoreAppApiPathes": [
+            "/api/v1,pods",
+            "/api/v1,replicationcontrollers",
+            "/apis/apps",
+            "/api/v1,endpoints",
+            "/api/v1,services",
+            "/apis/extensions,ingresses",
+            "/apis/autoscaling,horizontalpodautoscalers",
+            "/apis/batch,jobs",
+            "/apis/batch,cronjobs"
+        ],
+        "restoreNfsStorageClasses": [
+            "{{env.storageclass}}"
+        ],
+        "restoreOptions": []
+    }
+}

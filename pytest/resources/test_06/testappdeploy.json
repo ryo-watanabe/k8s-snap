@@ -1,0 +1,32 @@
+{
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+        "name": "{{env.testappdeploy}}",
+        "namespace": "{{env.testappns}}"
+    },
+    "spec": {
+        "replicas": 3,
+        "selector": {
+            "matchLabels": {
+                "app": "{{env.testappdeploy}}"
+            }
+        },
+        "template": {
+            "metadata": {
+                "creationTimestamp": null,
+                "labels": {
+                    "app": "{{env.testappdeploy}}"
+                }
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "name": "{{env.testappdeploy}}",
+                        "image": "{{env.testappimage}}"
+                    }
+                ]
+            }
+        }
+    }
+}

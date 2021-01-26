@@ -1,0 +1,24 @@
+{
+    "apiVersion": "v1",
+    "kind": "Service",
+    "metadata": {
+        "name": "{{env.mockdeploy}}",
+        "namespace": "{{env.namespace}}"
+    },
+    "spec": {
+        "ports": [
+            {
+                "port": 443,
+                "protocol": "TCP",
+                "targetPort": 9000
+            }
+        ],
+        "clusterIP": "{{env.clusterip}}",
+        "selector": {
+            "app": "{{env.mockdeploy}}"
+        },
+        "sessionAffinity": "None",
+        "type": "ClusterIP"
+    }
+}
+

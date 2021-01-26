@@ -1,0 +1,64 @@
+{
+    "apiVersion": "apps/v1",
+    "kind": "StatefulSet",
+    "metadata": {
+        "name": "{{env.testappdeploy}}",
+        "namespace": "{{env.pvtestappns}}"
+    },
+    "spec": {
+        "replicas": 3,
+        "selector": {
+            "matchLabels": {
+                "app": "{{env.testappdeploy}}"
+            }
+        },
+        "serviceName": "{{env.testappdeploy}}",
+        "template": {
+            "metadata": {
+                "labels": {
+                    "app": "{{env.testappdeploy}}"
+                }
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "image": "nginx",
+                        "imagePullPolicy": "IfNotPresent",
+                        "name": "{{env.testappdeploy}}",
+                        "ports": [
+                            {
+                                "containerPort": 80,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "volumeMounts": [
+                            {
+                                "mountPath": "/usr/share/nginx/html",
+                                "name": "contents"
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        "volumeClaimTemplates": [
+            {
+                "metadata": {
+                    "name": "contents"
+                },
+                "spec": {
+                    "accessModes": [
+                        "ReadWriteOnce"
+                    ],
+                    "resources": {
+                        "requests": {
+                            "storage": "1Gi"
+                        }
+                    },
+                    "storageClassName": "{{env.storageclass}}",
+                    "volumeMode": "Filesystem"
+                }
+            }
+        ]
+    }
+}

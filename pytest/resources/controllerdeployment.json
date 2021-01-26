@@ -1,0 +1,45 @@
+{
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+        "name": "{{env.deploy}}",
+        "namespace": "{{env.namespace}}"
+    },
+    "spec": {
+        "replicas": 1,
+        "selector": {
+            "matchLabels": {
+                "app": "{{env.deploy}}"
+            }
+        },
+        "template": {
+            "metadata": {
+                "creationTimestamp": null,
+                "labels": {
+                    "app": "{{env.deploy}}"
+                }
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "name": "{{env.deploy}}",
+                        "image": "{{env.image}}",
+                        "command": [
+                            "/{{env.command}}",
+                            "--namespace={{env.namespace}}",
+                            "--insecure=true",
+                            "--createbucket=true"
+                        ],
+                        "imagePullPolicy": "Always"
+                    }
+                ],
+                "imagePullSecrets": [
+                    {
+                        "name": "myregistrykey"
+                    }
+                ]
+            }
+        }
+    }
+}
+

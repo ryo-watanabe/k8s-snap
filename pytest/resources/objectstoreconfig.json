@@ -1,0 +1,15 @@
+{
+    "apiVersion": "{{env.groupname}}/v1alpha1",
+    "kind": "ObjectstoreConfig",
+    "metadata": {
+        "name": "{{env.objectstoreconfig}}",
+        "namespace": "{{env.namespace}}"
+    },
+    "spec": {
+        "bucket": "{{env.bucket}}",
+        "cloudCredentialSecret": "{{env.secret}}",
+        "endpoint": "{{env.mockdeploy}}.{{env.clusterip}}.nip.io",
+        "region": "{{env.region}}"
+    }
+}
+

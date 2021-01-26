@@ -1,0 +1,82 @@
+{
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+        "name": "{{env.nfsdeploy}}",
+        "namespace": "{{env.namespace}}"
+    },
+    "spec": {
+        "replicas": 1,
+        "selector": {
+            "matchLabels": {
+                "app": "{{env.nfsdeploy}}"
+            }
+        },
+        "template": {
+            "metadata": {
+                "creationTimestamp": null,
+                "labels": {
+                    "app": "{{env.nfsdeploy}}"
+                }
+            },
+            "spec": {
+                "initContainers": [
+                    {
+                        "command": [
+                            "sh",
+                            "-c",
+                            "mkdir /nfsshare/test-nfs-pv-01 && mkdir /nfsshare/test-nfs-pv-02 && mkdir /nfsshare/test-nfs-pv-03 && echo -n abcdef > /nfsshare/test-nfs-pv-01/index.html && echo -n ghijkl > /nfsshare/test-nfs-pv-02/index.html && echo -n mnopqr > /nfsshare/test-nfs-pv-03/index.html"
+                        ],
+                        "image": "alpine",
+                        "imagePullPolicy": "IfNotPresent",
+                        "name": "configure",
+                        "volumeMounts": [
+                            {
+                                "mountPath": "/nfsshare",
+                                "name": "cache-volume"
+                            }
+                        ]
+                    }
+                ],
+                "containers": [
+                    {
+                        "name": "{{env.nfsdeploy}}",
+                        "image": "{{env.nfsimage}}",
+                        "env": [
+                            {
+                                "name": "SHARED_DIRECTORY",
+                                "value": "/nfsshare"
+                            }
+                        ],
+                        "imagePullPolicy": "IfNotPresent",
+                        "ports": [
+                            {
+                                "containerPort": 2049,
+                                "protocol": "TCP"
+                            },
+                            {
+                                "containerPort": 111,
+                                "protocol": "UDP"
+                            }
+                        ],
+                        "securityContext": {
+                            "privileged": true
+                        },
+                        "volumeMounts": [
+                            {
+                                "mountPath": "/nfsshare",
+                                "name": "cache-volume"
+                            }
+                        ]
+                    }
+                ],
+                "volumes": [
+                    {
+                        "emptyDir": {},
+                        "name": "cache-volume"
+                    }
+                ]
+            }
+        }
+    }
+}

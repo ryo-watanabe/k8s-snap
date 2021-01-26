@@ -1,0 +1,22 @@
+{
+    "apiVersion": "v1",
+    "kind": "PersistentVolume",
+    "metadata": {
+        "name": "{{env.pvname}}-01"
+    },
+    "spec": {
+        "accessModes": [
+            "ReadWriteOnce"
+        ],
+        "capacity": {
+            "storage": "1Gi"
+        },
+        "nfs": {
+            "path": "/test-nfs-pv-01",
+            "server": "{{env.nfsclusterip}}"
+        },
+        "persistentVolumeReclaimPolicy": "Delete",
+        "storageClassName": "test-nfs-storage",
+        "volumeMode": "Filesystem"
+    }
+}

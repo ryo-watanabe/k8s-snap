@@ -1,0 +1,87 @@
+{
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+        "name": "{{env.mockdeploy}}",
+        "namespace": "{{env.namespace}}"
+    },
+    "spec": {
+        "replicas": 1,
+        "selector": {
+            "matchLabels": {
+                "app": "{{env.mockdeploy}}"
+            }
+        },
+        "template": {
+            "metadata": {
+                "creationTimestamp": null,
+                "labels": {
+                    "app": "{{env.mockdeploy}}"
+                }
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "name": "{{env.mockdeploy}}",
+                        "image": "{{env.mockimage}}",
+                        "args": [
+                            "server",
+                            "/data"
+                        ],
+                        "env": [
+                            {
+                                "name": "MINIO_ACCESS_KEY",
+                                "value": "{{env.accesskey}}"
+                            },
+                            {
+                                "name": "MINIO_SECRET_KEY",
+                                "value": "{{env.secretkey}}"
+                            },
+                            {
+                                "name": "MINIO_DOMAIN",
+                                "value": "{{env.mockdeploy}}.{{env.clusterip}}.nip.io"
+                            }
+                        ],
+                        "imagePullPolicy": "IfNotPresent",
+                        "ports": [
+                            {
+                                "containerPort": 9000,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "volumeMounts": [
+                            {
+                                "mountPath": "/root/.minio",
+                                "name": "secret"
+                            }
+                        ]
+                    }
+                ],
+                "volumes": [
+                    {
+                        "name": "secret",
+                        "secret": {
+                            "defaultMode": 420,
+                            "items": [
+                                {
+                                    "key": "public.crt",
+                                    "path": "certs/public.crt"
+                                },
+                                {
+                                    "key": "private.key",
+                                    "path": "certs/private.key"
+                                },
+                                {
+                                    "key": "public.crt",
+                                    "path": "certs/CAs/public.crt"
+                                }
+                            ],
+                            "secretName": "{{env.mockdeploy}}-tls"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+}
+

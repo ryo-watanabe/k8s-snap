@@ -38,6 +38,9 @@ func loadItem(item *unstructured.Unstructured, filepath string) error {
 func resourceFromSelfLink(selflink string) string {
 	s := strings.Split(selflink, "/")
 	if len(s) >= 2 {
+		if s[len(s)-2] == "crds" {
+			return "customresourcedefinitions"
+		}
 		return s[len(s)-2]
 	}
 	return ""

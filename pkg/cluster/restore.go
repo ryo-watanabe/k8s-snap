@@ -34,25 +34,17 @@ func loadItem(item *unstructured.Unstructured, filepath string) error {
 	return nil
 }
 
-// Get resoutrce string from GetSelfLink
-func resourceFromSelfLink(selflink string) string {
-	s := strings.Split(selflink, "/")
-	if len(s) >= 2 {
-		if s[len(s)-2] == "crds" {
-			return "customresourcedefinitions"
-		}
-		return s[len(s)-2]
-	}
-	return ""
-}
-
 // Create resource
-func createItem(ctx context.Context, item *unstructured.Unstructured, dyn dynamic.Interface, selflink string) (*unstructured.Unstructured, error) {
+func createItem(ctx context.Context, item *unstructured.Unstructured, dyn dynamic.Interface, sr *ServerResources) (*unstructured.Unstructured, error) {
 	gv, err := schema.ParseGroupVersion(item.GetAPIVersion())
 	if err != nil {
 		return nil, err
 	}
-	gvr := gv.WithResource(resourceFromSelfLink(selflink))
+	resource, err := sr.ResourceName(gv.WithKind(item.GetKind()))
+	if err != nil {
+		return nil, err
+	}
+	gvr := gv.WithResource(resource)
 	ns := item.GetNamespace()
 	if ns == "" {
 		return dyn.Resource(gvr).Create(ctx, item, metav1.CreateOptions{})
@@ -90,7 +82,7 @@ func failedWithMsg(restore *cbv1alpha1.Restore, rlog *utils.NamedLog, selflink, 
 
 // Restore resources according to preferences.
 func restoreDir(ctx context.Context, dir, restorePref string, dyn dynamic.Interface, p *preference,
-	restore *cbv1alpha1.Restore, rlog *utils.NamedLog) error {
+	restore *cbv1alpha1.Restore, sr *ServerResources, rlog *utils.NamedLog) error {
 
 	files, err := ioutil.ReadDir(filepath.Join(dir, restorePref))
 	if err != nil {
@@ -100,8 +92,11 @@ func restoreDir(ctx context.Context, dir, restorePref string, dyn dynamic.Interf
 
 		// Load item
 		var item unstructured.Unstructured
-		resourcePath := strings.Replace(f.Name(), "|", "/", -1)
 		err := loadItem(&item, filepath.Join(dir, restorePref, f.Name()))
+		if err != nil {
+			return err
+		}
+		resourcePath, err := sr.ResourcePath(&item)
 		if err != nil {
 			return err
 		}
@@ -149,7 +144,7 @@ func restoreDir(ctx context.Context, dir, restorePref string, dyn dynamic.Interf
 		// Restore item
 		item.SetResourceVersion("")
 		item.SetUID("")
-		_, err = createItem(ctx, &item, dyn, resourcePath)
+		_, err = createItem(ctx, &item, dyn, sr)
 		if err != nil {
 			//p.cntUpCnnotRestore(err.Error())
 			if strings.Contains(err.Error(), "already exists") {
@@ -225,6 +220,14 @@ func restoreResources(
 
 	// Restore log
 	rlog := utils.NewNamedLog("restore:" + restore.ObjectMeta.Name)
+
+	// Server Resources
+	discoveryClient := kubeClient.Discovery()
+	spr, err := discoveryClient.ServerResources()
+	if err != nil {
+		return err
+	}
+	sr := newServerResources(spr)
 
 	p := newPreference(pref)
 
@@ -308,7 +311,7 @@ func restoreResources(
 	// Restore namespaces
 	if p.isIn("Namespace") {
 		rlog.Info("Restore Namespaces :")
-		err = restoreDir(ctx, dir, "Namespace", dynamicClient, p, restore, rlog)
+		err = restoreDir(ctx, dir, "Namespace", dynamicClient, p, restore, sr, rlog)
 		if err != nil {
 			return err
 		}
@@ -316,15 +319,21 @@ func restoreResources(
 	// Restore CRDs
 	if p.isIn("CRD") {
 		rlog.Info("Restore CRDs :")
-		err = restoreDir(ctx, dir, "CRD", dynamicClient, p, restore, rlog)
+		err = restoreDir(ctx, dir, "CRD", dynamicClient, p, restore, sr, rlog)
 		if err != nil {
 			return err
 		}
 	}
+	// Reload Server Resources after CRDs restored
+	spr, err = discoveryClient.ServerResources()
+	if err != nil {
+		return err
+	}
+	sr = newServerResources(spr)
 	// Restore PV/PVC
 	if p.isIn("PV") && p.isIn("PVC") {
 		rlog.Info("Restore PV/PVC :")
-		err = restorePV(ctx, dir, dynamicClient, p, restore, rlog)
+		err = restorePV(ctx, dir, dynamicClient, p, restore, sr, rlog)
 		if err != nil {
 			return err
 		}
@@ -332,7 +341,7 @@ func restoreResources(
 	// Other resources
 	if p.isIn("Restore") {
 		rlog.Info("Restore resources except Apps :")
-		err = restoreDir(ctx, dir, "Restore", dynamicClient, p, restore, rlog)
+		err = restoreDir(ctx, dir, "Restore", dynamicClient, p, restore, sr, rlog)
 		if err != nil {
 			return err
 		}
@@ -340,7 +349,7 @@ func restoreResources(
 	// Restore apps
 	if p.isIn("App") {
 		rlog.Info("Restore Apps :")
-		err = restoreDir(ctx, dir, "App", dynamicClient, p, restore, rlog)
+		err = restoreDir(ctx, dir, "App", dynamicClient, p, restore, sr, rlog)
 		if err != nil {
 			return err
 		}

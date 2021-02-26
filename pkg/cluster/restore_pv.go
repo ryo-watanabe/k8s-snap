@@ -38,7 +38,7 @@ func isPVBound(ctx context.Context, pvName string, dyn dynamic.Interface, rlog *
 
 // Restore PV/PVC boundings one by one
 func restorePV(ctx context.Context, dir string, dyn dynamic.Interface, p *preference,
-	restore *cbv1alpha1.Restore, rlog *utils.NamedLog) error {
+	restore *cbv1alpha1.Restore, sr *ServerResources, rlog *utils.NamedLog) error {
 
 	pvcfiles, err := ioutil.ReadDir(filepath.Join(dir, "PVC"))
 	if err != nil {
@@ -51,8 +51,11 @@ func restorePV(ctx context.Context, dir string, dyn dynamic.Interface, p *prefer
 		var pvItem unstructured.Unstructured
 
 		// Load PVC item
-		resourcePath := strings.Replace(f.Name(), "|", "/", -1)
 		err := loadItem(&pvcItem, filepath.Join(dir, "PVC", f.Name()))
+		if err != nil {
+			return err
+		}
+		resourcePath, err := sr.ResourcePath(&pvcItem)
 		if err != nil {
 			return err
 		}
@@ -91,8 +94,11 @@ func restorePV(ctx context.Context, dir string, dyn dynamic.Interface, p *prefer
 		pvResourcePath := ""
 		for _, pvf := range pvfiles {
 			if strings.Contains(pvf.Name(), "|persistentvolumes|"+volumeName+".json") {
-				pvResourcePath = strings.Replace(pvf.Name(), "|", "/", -1)
 				err := loadItem(&pvItem, filepath.Join(dir, "PV", pvf.Name()))
+				if err != nil {
+					return err
+				}
+				pvResourcePath, err = sr.ResourcePath(&pvItem)
 				if err != nil {
 					return err
 				}
@@ -116,7 +122,7 @@ func restorePV(ctx context.Context, dir string, dyn dynamic.Interface, p *prefer
 		pvItem.Object["status"] = nil
 		pvItem.SetResourceVersion("")
 		pvItem.SetUID("")
-		_, err = createItem(ctx, &pvItem, dyn, pvResourcePath)
+		_, err = createItem(ctx, &pvItem, dyn, sr)
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
 				alreadyExist(restore, rlog, pvResourcePath)
@@ -137,7 +143,7 @@ func restorePV(ctx context.Context, dir string, dyn dynamic.Interface, p *prefer
 		annotations := pvcItem.GetAnnotations()
 		delete(annotations, "pv.kubernetes.io/bind-completed")
 		pvcItem.SetAnnotations(annotations)
-		_, err = createItem(ctx, &pvcItem, dyn, resourcePath)
+		_, err = createItem(ctx, &pvcItem, dyn, sr)
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
 				alreadyExist(restore, rlog, resourcePath)

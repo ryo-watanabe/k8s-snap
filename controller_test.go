@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -188,8 +189,8 @@ func TestSnapshot(t *testing.T) {
 	// 0:Create snapshot
 	cases[0].updatedSnapshots[0].Spec.TTL.Duration = dur
 	// 1:RFC3339
-	cases[1].snapshots[0].Spec.AvailableUntil.Time, _ = time.Parse(time.RFC3339, "2020-07-01T02:03:04Z")
-	cases[1].updatedSnapshots[0].Spec.AvailableUntil.Time = time.Date(2020, time.July, 1, 2, 3, 4, 0, time.UTC)
+	cases[1].snapshots[0].Spec.AvailableUntil.Time, _ = time.Parse(time.RFC3339, "2120-07-01T02:03:04Z")
+	cases[1].updatedSnapshots[0].Spec.AvailableUntil.Time = time.Date(2120, time.July, 1, 2, 3, 4, 0, time.UTC)
 	// 2:InQueue > InProgress > Completed
 	// 3:InQueue > InProgress > Failed - secret not found
 	cases[3].secrets = nil
@@ -494,7 +495,7 @@ type mockCluster struct {
 // Snapshot for fake cluster interface
 var snapshotErr error
 
-func (c *mockCluster) Snapshot(snapshot *cbv1alpha1.Snapshot) error {
+func (c *mockCluster) Snapshot(ctx context.Context, snapshot *cbv1alpha1.Snapshot) error {
 	return snapshotErr
 }
 
@@ -790,17 +791,18 @@ func TestQueues(t *testing.T) {
 
 	cntl, i, k8sI := f.newController()
 	f.initInformers(i, k8sI)
+	ctx := context.TODO()
 
 	cntl.enqueueSnapshot(snap)
 	cntl.processNextSnapshotItem(false)
-	handledSnap, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get("test1", metav1.GetOptions{})
+	handledSnap, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get(ctx, "test1", metav1.GetOptions{})
 	if handledSnap.Status.Phase != "InQueue" {
 		t.Errorf("Handled snap status not correct : %s", handledSnap.Status.Phase)
 	}
 
 	cntl.enqueueRestore(restore)
 	cntl.processNextRestoreItem(false)
-	handledRestore, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Restores(cntl.namespace).Get("test1", metav1.GetOptions{})
+	handledRestore, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Restores(cntl.namespace).Get(ctx, "test1", metav1.GetOptions{})
 	if handledRestore.Status.Phase != "InQueue" {
 		t.Errorf("Handled restore status not correct : %s", handledRestore.Status.Phase)
 	}
@@ -850,7 +852,7 @@ func (b bucketMock) ListObjectInfo() ([]objectstore.ObjectInfo, error) {
 	return objectInfoList, nil
 }
 
-func getBucketMock(namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error) {
+func getBucketMock(ctx context.Context, namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error) {
 	return bucketMock{}, nil
 }
 
@@ -876,7 +878,7 @@ func doSyncObjects(t *testing.T, cntl *Controller, deleteOrphanObjects, restoreO
 }
 
 func chkSnapshot(t *testing.T, cntl *Controller, name, status, reason string) {
-	snap, err := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get(name, metav1.GetOptions{})
+	snap, err := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Error get snapshot %s : %s", name, err.Error())
 	}
@@ -914,7 +916,7 @@ func TestBucket(t *testing.T) {
 	}
 	cntl = newBucketTestController(t, snapshots)
 	doSyncObjects(t, cntl, true, false, false)
-	updatedSnap, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get("test1", metav1.GetOptions{})
+	updatedSnap, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get(context.TODO(), "test1", metav1.GetOptions{})
 	if updatedSnap.Spec.ObjectstoreConfig != "bucket" {
 		t.Errorf("Error updated snapshot config is not match : %s", updatedSnap.Spec.ObjectstoreConfig)
 	}
@@ -1020,11 +1022,11 @@ func TestBucket(t *testing.T) {
 	kubeClient := k8sfake.NewSimpleClientset(kubeobjects...)
 	sch := runtime.NewScheme()
 	dynamicClient := dynamicfake.NewSimpleDynamicClient(sch, ukubeobjects...)
-	err := cluster.SnapshotWithClient(snapshots[0], kubeClient, dynamicClient)
+	err := cluster.SnapshotWithClient(context.TODO(), snapshots[0], kubeClient, dynamicClient)
 	if err != nil {
 		t.Errorf("Error in snapshotWithClient : %s", err.Error())
 	}
-	err = cntl.restoreSnapshotFromObjectFile(objectstore.ObjectInfo{Name: "test1.tgz"})
+	err = cntl.restoreSnapshotFromObjectFile(context.TODO(), objectstore.ObjectInfo{Name: "test1.tgz"})
 	if err != nil {
 		t.Errorf("Error in restoreSnapshotFromObjectFile : %s", err.Error())
 	}

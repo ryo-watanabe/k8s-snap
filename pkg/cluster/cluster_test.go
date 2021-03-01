@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"context"
 	"flag"
 	"os"
 	"strconv"
@@ -53,7 +54,7 @@ func TestCluster(t *testing.T) {
 	res = setAPIResourceList(res, "storage.k8s.io", "v1", "storageclasses", "StorageClass", false)
 	res = setAPIResourceList(res, "", "v1", "componentstatuses", "ComponentStatus", false)
 	res = setAPIResourceList(res, "", "v1", "persistentvolumes", "PersistentVolume", false)
-	res = setAPIResourceList(res, "", "v1", "persistentvolumeclaims", "PersistentVoluemClaims", false)
+	res = setAPIResourceList(res, "", "v1", "persistentvolumeclaims", "PersistentVolumeClaim", false)
 	kubeClient.Discovery().(*discoveryfake.FakeDiscovery).Fake.Resources = res
 
 	// Set resouces stored in snapshots
@@ -83,6 +84,19 @@ func TestCluster(t *testing.T) {
 
 	// Make dynamic client
 	sch := runtime.NewScheme()
+	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "NamespaceList"}, &unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "SecretList"}, &unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceList"}, &unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "EndpointList"}, &unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMapList"}, &unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "PodList"}, &unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBindingList"}, &unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleList"}, &unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinitionList"}, &unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "storage.k8s.io", Version: "v1", Kind: "StorageClassList"}, &unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ComponentStatusList"}, &unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "PersistentVolumeList"}, &unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "PersistentVolumeClaimList"}, &unstructured.UnstructuredList{})
 	dynamicClient := newDynamicClient(sch, 1, ukubeobjects...)
 	var snapstart bool
 
@@ -135,7 +149,7 @@ func TestCluster(t *testing.T) {
 	snap := newConfiguredSnapshot("test1", "InProgress")
 
 	// TEST1 : Get a snapshot
-	err := SnapshotWithClient(snap, kubeClient, dynamicClient)
+	err := SnapshotWithClient(context.TODO(), snap, kubeClient, dynamicClient)
 	if err != nil {
 		t.Errorf("Error in snapshotWithClient : %s", err.Error())
 	}
@@ -228,7 +242,7 @@ func TestCluster(t *testing.T) {
 		"/api/v1/namespaces/default/persistentvolumeclaims/pvc4,(not-bounded)",
 		"/apis/rbac.authorization.k8s.io/v1/clusterrolebindings/cluster-admin-kube-system,(not-binded-to-ns)",
 		"/apis/rbac.authorization.k8s.io/v1/clusterroles/cluster-role1,(not-binded-to-ns)",
-		"/api/v1/namespaces/default/secrets/cloudCredentialSecret,(token-secret)",
+		"/api/v1/namespaces/default/secrets/token1,(token-secret)",
 		"/api/v1/namespaces/default/endpoints/svc1,(service-exists)",
 		"/api/v1/namespaces/default/pods/pod1,(owner-ref)",
 	}
@@ -244,6 +258,7 @@ func TestCluster(t *testing.T) {
 		"/apis/rbac.authorization.k8s.io/v1/clusterrolebindings/cluster-admin-default",
 		"/apis/rbac.authorization.k8s.io/v1/clusterroles/cluster-admin",
 		"/apis/storage.k8s.io/v1/storageclasses/include-nfs-storage",
+		"/api/v1/namespaces/default/secrets/secret1",
 		"/api/v1/namespaces/default/services/svc1",
 	}
 	chkResourceList(t, restore.Status.AlreadyExisted, expectedAlreadyExisted)
@@ -312,6 +327,7 @@ func (b bucketMock) GetObjectInfo(filename string) (*objectstore.ObjectInfo, err
 var dynamicTracker ObjectTracker
 
 func newDynamicClient(scheme *runtime.Scheme, rv uint64, objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
+
 	// In order to use List with this client, you have to have the v1.List registered in your scheme. Neat thing though
 	// it does NOT have to be the *same* list
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "fake-dynamic-client-group", Version: "v1", Kind: "List"}, &unstructured.UnstructuredList{})
@@ -325,8 +341,12 @@ func newDynamicClient(scheme *runtime.Scheme, rv uint64, objects ...runtime.Obje
 		}
 	}
 
-	cs := &dynamicfake.FakeDynamicClient{}
+	cs := dynamicfake.NewSimpleDynamicClient(scheme, objects...)
+
+	// Change the tracker with versioned
+	cs.ReactionChain = nil
 	cs.AddReactor("*", "*", core.ObjectReaction(dynamicTracker))
+	cs.WatchReactionChain = nil
 	cs.AddWatchReactor("*", func(action core.Action) (handled bool, ret watch.Interface, err error) {
 		gvr := action.GetResource()
 		ns := action.GetNamespace()

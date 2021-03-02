@@ -3,11 +3,18 @@ package cluster
 import (
 	"context"
 	"flag"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
+	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -271,6 +278,98 @@ func TestCluster(t *testing.T) {
 	}
 }
 
+const kubeconfigSrc = `apiVersion: v1
+clusters:
+- cluster:
+    server: CLUSTER_URL
+  name: kubernetes
+contexts:
+- context:
+    cluster: kubernetes
+    user: user
+  name: user@kubernetes
+current-context: user@kubernetes
+kind: Config
+preferences: {}
+users:
+- name: user
+  token: TOKEN`
+
+const responseSrc = `{
+  "kind": "Status",
+  "apiVersion": "v1",
+  "metadata": {
+
+  },
+  "status": "Failure",
+  "message": "Unauthorized",
+  "reason": "Unauthorized",
+  "code": 401
+}`
+
+func TestSnapshotConfig(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(401)
+		fmt.Fprintln(w, responseSrc)
+	}))
+
+	// Test01 Unauthorized - Permanent error
+	snap := newConfiguredSnapshot("test1", "InProgress")
+	snap.Spec.Kubeconfig = strings.Replace(kubeconfigSrc, "CLUSTER_URL", ts.URL, 1)
+	err := Snapshot(context.TODO(), snap)
+	fmt.Println(err.Error())
+	_, ok := err.(*backoff.PermanentError)
+	if !ok {
+		t.Errorf("Error type is not backoff.PermanentError but is %T", reflect.TypeOf(err))
+	}
+
+	// Test02 Connection refused - Error for retry
+	ts.Close()
+	err = Snapshot(context.TODO(), snap)
+	fmt.Println(err.Error())
+	_, ok = err.(*backoff.PermanentError)
+	if ok {
+		t.Errorf("Error type is %T", reflect.TypeOf(err))
+	}
+}
+
+const objectstoreResponseSrc = `<?xml version="1.0" encoding="UTF-8"?>
+<Error>
+  <Code>InvalidAccessKeyId</Code>
+  <RequestId>tx00000000000000381f085-00603d964f-27854fae-default</RequestId>
+  <HostId>27854fae-default-default</HostId>
+</Error>`
+
+func TestObjectstoreConfig(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(403)
+		fmt.Fprintln(w, objectstoreResponseSrc)
+	}))
+
+	// Test01 InvalidAccessKey - Permanent error
+	snap := newConfiguredSnapshot("test1", "InProgress")
+	url, _ := url.Parse(ts.URL)
+	endpoint := url.Scheme + "://" + url.Hostname() + ".nip.io:" + url.Port()
+	bucket := objectstore.NewBucket("test1", "ACCESSKEY", "SECRETKEY", endpoint, "jp-east-2", "test1", false)
+	err := UploadSnapshot(snap, bucket)
+	fmt.Println(err.Error())
+	_, ok := err.(*backoff.PermanentError)
+	if !ok {
+		t.Errorf("Error type is not backoff.PermanentError but is %T", reflect.TypeOf(err))
+	}
+
+	// Test02 Connection refused - Error for retry
+	ts.Close()
+	err = UploadSnapshot(snap, bucket)
+	fmt.Println(err.Error())
+	_, ok = err.(*backoff.PermanentError)
+	if ok {
+		t.Errorf("Error type is %T", reflect.TypeOf(err))
+	}
+}
+
+// Test util funcs //////////////
+
 func chkResourceList(t *testing.T, res, ref []string) {
 	notMatch := false
 	if len(res) != len(ref) {
@@ -373,15 +472,8 @@ func unstrctrdResource(group, version, ns, name, kind, resourcename string) *uns
 	item := &unstructured.Unstructured{}
 	item.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
 	item.SetName(name)
-	gvpath := "/apis/" + group + "/" + version
-	if group == "" {
-		gvpath = "/api/v1"
-	}
-	if ns == "" {
-		item.SetSelfLink(gvpath + "/" + resourcename + "/" + name)
-	} else {
+	if ns != "" {
 		item.SetNamespace(ns)
-		item.SetSelfLink(gvpath + "/namespaces/" + ns + "/" + resourcename + "/" + name)
 	}
 	return item
 }
@@ -438,7 +530,6 @@ func newConfiguredSecret(name string, stype corev1.SecretType) *corev1.Secret {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metav1.NamespaceDefault,
-			SelfLink:  "/api/v1/namespaces/default/secrets/cloudCredentialSecret",
 		},
 		Type: stype,
 	}
@@ -450,7 +541,6 @@ func newConfiguredConfigMap(name, data string) *corev1.ConfigMap {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metav1.NamespaceDefault,
-			SelfLink:  "/api/v1/namespaces/default/configmaps/" + name,
 		},
 		Data: map[string]string{
 			"message": data,
@@ -499,7 +589,6 @@ func newClusterRoleBinding(ns string) *rbac.ClusterRoleBinding {
 		TypeMeta: metav1.TypeMeta{APIVersion: "rbac.authorization.k8s.io/v1", Kind: "ClusterRoleBinding"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:     "cluster-admin-" + ns,
-			SelfLink: "/apis/rbac.authorization.k8s.io/v1/clusterrolebindings/cluster-admin-" + ns,
 		},
 		Subjects: []rbac.Subject{
 			rbac.Subject{Kind: "ServiceAccount", Name: "default", Namespace: ns},
@@ -513,7 +602,6 @@ func newPV(name, class, claimns, claimname string) *corev1.PersistentVolume {
 		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "PersistentVolume"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:     name,
-			SelfLink: "/api/v1/persistentvolumes/" + name,
 		},
 		Spec: corev1.PersistentVolumeSpec{
 			ClaimRef:         &corev1.ObjectReference{Namespace: claimns, Name: claimname},
@@ -531,7 +619,6 @@ func newPVC(ns, name, class, pvname string) *corev1.PersistentVolumeClaim {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: ns,
-			SelfLink:  "/api/v1/namespaces/" + ns + "/persistentvolumeclaims/" + name,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			StorageClassName: &class,

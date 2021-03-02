@@ -180,6 +180,10 @@ func TestSnapshot(t *testing.T) {
 		newSnapshotCase("Failed", "Mock cluster upload returns perm error"),
 		// 12:InQueue > InProgress > Failed - cluster.Upload returns retry timeout
 		newSnapshotCase("Failed", "Mock cluster upload returns not perm error"),
+		// 13:Key not found (not error)
+		Case{handleKey: "test1"},
+		// 14:Invalid key
+		Case{handleKey: "test1/test1"},
 	}
 
 	// Additional test data:
@@ -226,6 +230,8 @@ func TestSnapshot(t *testing.T) {
 	cases[11].uploaderror = backoff.Permanent(fmt.Errorf("Mock cluster upload returns perm error"))
 	// 12:InQueue > InProgress > Failed - cluster.Upload returns retry timeout
 	cases[12].uploaderror = fmt.Errorf("Mock cluster upload returns not perm error")
+	// 13:Key not found (not error)
+	// 14:Invalid key (not error)
 
 	for _, c := range cases {
 		SnapshotTestCase(&c, t)
@@ -337,6 +343,10 @@ func TestRestore(t *testing.T) {
 			},
 			handleKey: "test1",
 		},
+		// 12:Key not found (not error)
+		Case{handleKey: "test1"},
+		// 13:Invalid key
+		Case{handleKey: "test1/test1"},
 	}
 
 	dur, _ := time.ParseDuration("168h0m0s")
@@ -378,6 +388,8 @@ func TestRestore(t *testing.T) {
 	cases[11].restores[0].Status.AvailableUntil = future
 	cases[11].updatedRestores[0].Spec.AvailableUntil = past
 	cases[11].updatedRestores[0].Status.AvailableUntil = past
+	// 12:Key not found (not error)
+	// 13:Invalid key (not error)
 
 	for _, c := range cases {
 		RestoreTestCase(&c, t)

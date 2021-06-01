@@ -90,6 +90,7 @@ def k8s_wait_all_deleted(url_path):
 		res = json.loads(body.decode('utf-8'))
 		if 'items' in res and len(res['items']) == 0:
 			ready = True
+			sleep(sleepSec)
 			break
 		print(".", end=" ")
 		sleep(sleepSec)

@@ -5,6 +5,7 @@ on:
     branches: [ master ]
     paths-ignore:
     - '**.yml'
+    - '**.py'
   pull_request:
     branches: [ master ]
 

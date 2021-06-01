@@ -41,7 +41,8 @@ func (c *Cmd) UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket objectstore.O
 }
 
 // Restore restores snapshot data on a cluster
-func (c *Cmd) Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket objectstore.Objectstore) error {
+func (c *Cmd) Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference,
+	bucket objectstore.Objectstore) error {
 	return Restore(restore, pref, bucket)
 }
 
@@ -141,4 +142,3 @@ func getUnstructuredString(obj map[string]interface{}, name string) string {
 	}
 	return s
 }
-

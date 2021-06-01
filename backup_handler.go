@@ -100,7 +100,8 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 	if snapshot.Status.Phase == "InProgress" {
 
 		// check timestamp just in case
-		retryend := metav1.NewTime(snapshot.ObjectMeta.CreationTimestamp.Add(time.Duration(c.maxretryelapsedsec+1) * time.Second))
+		retryend := metav1.NewTime(snapshot.ObjectMeta.CreationTimestamp.Add(
+			time.Duration(c.maxretryelapsedsec+1) * time.Second))
 		nowTime := metav1.NewTime(time.Now())
 		if retryend.Before(&nowTime) {
 			snapshot, err = c.updateSnapshotStatus(ctx, snapshot, "Failed", "Controller stopped while taking the snapshot")
@@ -118,7 +119,8 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 		}
 
 		// bucket
-		bucket, err := c.getBucket(ctx, c.namespace, snapshot.Spec.ObjectstoreConfig, c.kubeclientset, c.cbclientset, c.insecure)
+		bucket, err := c.getBucket(ctx, c.namespace, snapshot.Spec.ObjectstoreConfig,
+			c.kubeclientset, c.cbclientset, c.insecure)
 		if err != nil {
 			snapshot, err = c.updateSnapshotStatus(ctx, snapshot, "Failed", err.Error())
 			if err != nil {
@@ -126,7 +128,8 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 			}
 			return nil
 		}
-		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s", bucket.GetName(), bucket.GetEndpoint(), bucket.GetBucketName())
+		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s",
+			bucket.GetName(), bucket.GetEndpoint(), bucket.GetBucketName())
 
 		// do snapshot with backoff retry
 		b := backoff.NewExponentialBackOff()
@@ -196,7 +199,8 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 			snapshot.Status.AvailableUntil = snapshot.Spec.AvailableUntil
 			snapshot.Status.TTL.Duration = snapshot.Status.AvailableUntil.Time.Sub(snapshot.ObjectMeta.CreationTimestamp.Time)
 		} else {
-			snapshot.Status.AvailableUntil = metav1.NewTime(snapshot.ObjectMeta.CreationTimestamp.Add(snapshot.Spec.TTL.Duration))
+			snapshot.Status.AvailableUntil = metav1.NewTime(
+				snapshot.ObjectMeta.CreationTimestamp.Add(snapshot.Spec.TTL.Duration))
 			snapshot.Status.TTL = snapshot.Spec.TTL
 		}
 		snapshot, err = c.updateSnapshotStatus(ctx, snapshot, snapshot.Status.Phase, snapshot.Status.Reason)
@@ -234,12 +238,14 @@ func (c *Controller) snapshotSyncHandler(key string, queueonly bool) error {
 	return nil
 }
 
-func (c *Controller) updateSnapshotStatus(ctx context.Context, snapshot *cbv1alpha1.Snapshot, phase, reason string) (*cbv1alpha1.Snapshot, error) {
+func (c *Controller) updateSnapshotStatus(ctx context.Context, snapshot *cbv1alpha1.Snapshot,
+	phase, reason string) (*cbv1alpha1.Snapshot, error) {
 	snapshotCopy := snapshot.DeepCopy()
 	snapshotCopy.Status.Phase = phase
 	snapshotCopy.Status.Reason = reason
 	klog.Infof("snapshot:%s status %s => %s : %s", snapshot.ObjectMeta.Name, snapshot.Status.Phase, phase, reason)
-	snapshot, err := c.cbclientset.ClustersnapshotV1alpha1().Snapshots(snapshot.Namespace).Update(ctx, snapshotCopy, metav1.UpdateOptions{})
+	snapshot, err := c.cbclientset.ClustersnapshotV1alpha1().Snapshots(snapshot.Namespace).Update(
+		ctx, snapshotCopy, metav1.UpdateOptions{})
 	if err != nil {
 		return snapshot, fmt.Errorf("Failed to update snapshot status for %s : %s", snapshot.ObjectMeta.Name, err.Error())
 	}
@@ -289,7 +295,8 @@ func (c *Controller) deleteSnapshot(obj interface{}) {
 	// context for delete snapshot
 	ctx := context.TODO()
 
-	bucket, err := c.getBucket(ctx, c.namespace, snapshot.Spec.ObjectstoreConfig, c.kubeclientset, c.cbclientset, c.insecure)
+	bucket, err := c.getBucket(ctx, c.namespace, snapshot.Spec.ObjectstoreConfig,
+		c.kubeclientset, c.cbclientset, c.insecure)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -302,4 +309,3 @@ func (c *Controller) deleteSnapshot(obj interface{}) {
 		runtime.HandleError(err)
 	}
 }
-

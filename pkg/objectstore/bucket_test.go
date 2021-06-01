@@ -92,7 +92,8 @@ type mockUploader struct {
 var uploadBucketName string
 var uploadKey string
 
-func (m mockUploader) Upload(input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
+func (m mockUploader) Upload(input *s3manager.UploadInput,
+	options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
 	uploadBucketName = *input.Bucket
 	uploadKey = *input.Key
 	return &s3manager.UploadOutput{}, nil
@@ -111,7 +112,8 @@ type mockDownloader struct {
 var downloadBucketName string
 var downloadKey string
 
-func (m mockDownloader) Download(w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) (int64, error) {
+func (m mockDownloader) Download(w io.WriterAt, input *s3.GetObjectInput,
+	options ...func(*s3manager.Downloader)) (int64, error) {
 	downloadBucketName = *input.Bucket
 	downloadKey = *input.Key
 	return 0, nil
@@ -125,7 +127,7 @@ func TestBucket(t *testing.T) {
 
 	// Init klog
 	klog.InitFlags(nil)
-	flag.Set("logtostderr", "true")
+	_ = flag.Set("logtostderr", "true")
 	flag.Parse()
 	klog.Infof("k8s-snap pkg objectstore test")
 	klog.Flush()
@@ -155,13 +157,13 @@ func TestBucket(t *testing.T) {
 	}
 
 	// Create Bucket
-	b.CreateBucket()
+	_ = b.CreateBucket()
 	if createdBucketName != "k8s-snap" {
 		t.Errorf("Error in Created Bucket name")
 	}
 
 	// Upload a file
-	b.Upload(nil, "UPLOAD_FILENAME")
+	_ = b.Upload(nil, "UPLOAD_FILENAME")
 	if uploadBucketName != "k8s-snap" {
 		t.Errorf("Error in Upload Bucket name")
 	}
@@ -170,7 +172,7 @@ func TestBucket(t *testing.T) {
 	}
 
 	// Upload a file
-	b.Download(nil, "DOWNLOAD_FILENAME")
+	_ = b.Download(nil, "DOWNLOAD_FILENAME")
 	if downloadBucketName != "k8s-snap" {
 		t.Errorf("Error in Download Bucket name")
 	}
@@ -179,7 +181,7 @@ func TestBucket(t *testing.T) {
 	}
 
 	// Delete a file
-	b.Delete("DELETE_FILENAME")
+	_ = b.Delete("DELETE_FILENAME")
 	if deleteObjectBucketName != "k8s-snap" {
 		t.Errorf("Error in Delete Object Bucket name")
 	}

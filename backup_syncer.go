@@ -33,7 +33,8 @@ func (c *Controller) getObjectList(ctx context.Context) ([]objectstore.ObjectInf
 
 	objectList := make([]objectstore.ObjectInfo, 0)
 
-	osConfigs, err := c.cbclientset.ClustersnapshotV1alpha1().ObjectstoreConfigs(c.namespace).List(ctx, metav1.ListOptions{})
+	osConfigs, err := c.cbclientset.ClustersnapshotV1alpha1().ObjectstoreConfigs(c.namespace).List(
+		ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("List Objectstore Config error : %s", err.Error())
 	}
@@ -43,7 +44,7 @@ func (c *Controller) getObjectList(ctx context.Context) ([]objectstore.ObjectInf
 		// Get bucket
 		bucket, err := c.getBucket(ctx, c.namespace, os.ObjectMeta.Name, c.kubeclientset, c.cbclientset, c.insecure)
 		if err != nil {
-			fmt.Errorf("Get bucket error for ObjectstoreConfig %s * %s", os.ObjectMeta.Name, err.Error())
+			return nil, fmt.Errorf("Get bucket error for ObjectstoreConfig %s * %s", os.ObjectMeta.Name, err.Error())
 		}
 
 		// Append objects list
@@ -61,7 +62,10 @@ func (c *Controller) restoreSnapshotFromObject(ctx context.Context, object objec
 
 	// Download object
 	snapshotFile, err := os.Create("/tmp/" + object.Name)
-	defer snapshotFile.Close()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = snapshotFile.Close() }()
 	bucket, err := c.getBucket(ctx, c.namespace, object.BucketConfigName, c.kubeclientset, c.cbclientset, c.insecure)
 	if err != nil {
 		return err
@@ -70,7 +74,7 @@ func (c *Controller) restoreSnapshotFromObject(ctx context.Context, object objec
 	if err != nil {
 		return err
 	}
-	snapshotFile.Close()
+	_ = snapshotFile.Close()
 
 	return c.restoreSnapshotFromObjectFile(ctx, object)
 }
@@ -86,7 +90,7 @@ func (c *Controller) restoreSnapshotFromObjectFile(ctx context.Context, object o
 	if err != nil {
 		return err
 	}
-	defer tgz.Close()
+	defer func() { _ = tgz.Close() }()
 
 	// Search snapshot.json in tgz file
 	tarReader := tar.NewReader(tgz)
@@ -215,7 +219,7 @@ func (c *Controller) syncObjects(deleteOrphanObjects, restoreOrphanedSnapshots, 
 	objectNotFoundSnaps := make([]cbv1alpha1.Snapshot, 0)
 	objectInvalidSnaps := make([]cbv1alpha1.Snapshot, 0)
 	validSnaps := make([]cbv1alpha1.Snapshot, 0)
-	for _, snap := range snapshots.Items {
+	for i, snap := range snapshots.Items {
 		if snap.Status.Phase != "Completed" &&
 			snap.Status.Phase != "Failed" {
 			continue
@@ -231,8 +235,8 @@ func (c *Controller) syncObjects(deleteOrphanObjects, restoreOrphanedSnapshots, 
 
 					// If the object found in other bucket, update the snapshot with correct config
 					if snap.Spec.ObjectstoreConfig != object.BucketConfigName {
-						snap.Spec.ObjectstoreConfig = object.BucketConfigName
-						updatedSnap, err := c.updateSnapshotStatus(ctx, &snap, snap.Status.Phase, snap.Status.Reason)
+						snapshots.Items[i].Spec.ObjectstoreConfig = object.BucketConfigName
+						updatedSnap, err := c.updateSnapshotStatus(ctx, &snapshots.Items[i], snap.Status.Phase, snap.Status.Reason)
 						if err != nil {
 							return err
 						}
@@ -248,10 +252,12 @@ func (c *Controller) syncObjects(deleteOrphanObjects, restoreOrphanedSnapshots, 
 		}
 		if !found {
 			objectNotFoundSnaps = append(objectNotFoundSnaps, snap)
-			slog.Infof("Object not found snap : %s %s %d", snap.ObjectMeta.Name, snap.Status.StoredTimestamp, snap.Status.StoredFileSize)
+			slog.Infof("Object not found snap : %s %s %d",
+				snap.ObjectMeta.Name, snap.Status.StoredTimestamp, snap.Status.StoredFileSize)
 		} else if !valid {
 			objectInvalidSnaps = append(objectInvalidSnaps, snap)
-			slog.Infof("Object invalid snap   : %s %s %d", snap.ObjectMeta.Name, snap.Status.StoredTimestamp, snap.Status.StoredFileSize)
+			slog.Infof("Object invalid snap   : %s %s %d",
+				snap.ObjectMeta.Name, snap.Status.StoredTimestamp, snap.Status.StoredFileSize)
 		}
 	}
 
@@ -282,18 +288,19 @@ func (c *Controller) syncObjects(deleteOrphanObjects, restoreOrphanedSnapshots, 
 
 	// Validate (or do not validate) size and timestamp
 	if validateFileinfo {
-		for _, snap := range objectInvalidSnaps {
+		for i, snap := range objectInvalidSnaps {
 			if snap.Status.Phase != "Failed" {
-				_, err = c.updateSnapshotStatus(ctx, &snap, "Failed", "Snapshot file size or timestamp not matched")
+				_, err = c.updateSnapshotStatus(ctx, &objectInvalidSnaps[i],
+					"Failed", "Snapshot file size or timestamp not matched")
 				if err != nil {
 					return err
 				}
 			}
 		}
 	} else {
-		for _, snap := range objectInvalidSnaps {
+		for i, snap := range objectInvalidSnaps {
 			if snap.Status.Phase != "Completed" {
-				_, err = c.updateSnapshotStatus(ctx, &snap, "Completed", "")
+				_, err = c.updateSnapshotStatus(ctx, &objectInvalidSnaps[i], "Completed", "")
 				if err != nil {
 					return err
 				}
@@ -303,9 +310,9 @@ func (c *Controller) syncObjects(deleteOrphanObjects, restoreOrphanedSnapshots, 
 
 	// Set 'Failed' for object not found
 	if deleteOrphanObjects {
-		for _, snap := range objectNotFoundSnaps {
+		for i, snap := range objectNotFoundSnaps {
 			if snap.Status.Phase != "Failed" {
-				_, err = c.updateSnapshotStatus(ctx, &snap, "Failed", "Snapshot file not found")
+				_, err = c.updateSnapshotStatus(ctx, &objectNotFoundSnaps[i], "Failed", "Snapshot file not found")
 				if err != nil {
 					return err
 				}
@@ -314,9 +321,9 @@ func (c *Controller) syncObjects(deleteOrphanObjects, restoreOrphanedSnapshots, 
 	}
 
 	// Set 'Completed' for valid snaps
-	for _, snap := range validSnaps {
+	for i, snap := range validSnaps {
 		if snap.Status.Phase != "Completed" {
-			_, err = c.updateSnapshotStatus(ctx, &snap, "Completed", "")
+			_, err = c.updateSnapshotStatus(ctx, &validSnaps[i], "Completed", "")
 			if err != nil {
 				return err
 			}
@@ -325,4 +332,3 @@ func (c *Controller) syncObjects(deleteOrphanObjects, restoreOrphanedSnapshots, 
 
 	return nil
 }
-

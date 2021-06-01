@@ -41,7 +41,7 @@ func TestCluster(t *testing.T) {
 
 	// Init klog
 	klog.InitFlags(nil)
-	flag.Set("logtostderr", "true")
+	_ = flag.Set("logtostderr", "true")
 	flag.Parse()
 	klog.Infof("k8s-snap pkg cluster test")
 	klog.Flush()
@@ -55,9 +55,11 @@ func TestCluster(t *testing.T) {
 	res = setAPIResourceList(res, "", "v1", "services", "Service", true)
 	res = setAPIResourceList(res, "", "v1", "endpoints", "Endpoints", true)
 	res = setAPIResourceList(res, "", "v1", "pods", "Pod", true)
-	res = setAPIResourceList(res, "rbac.authorization.k8s.io", "v1", "clusterrolebindings", "ClusterRoleBinding", false)
+	res = setAPIResourceList(res, "rbac.authorization.k8s.io", "v1", "clusterrolebindings",
+		"ClusterRoleBinding", false)
 	res = setAPIResourceList(res, "rbac.authorization.k8s.io", "v1", "clusterroles", "ClusterRole", false)
-	res = setAPIResourceList(res, "apiextensions.k8s.io", "v1", "customresourcedefinitions", "CustomResourceDefinition", false)
+	res = setAPIResourceList(res, "apiextensions.k8s.io", "v1", "customresourcedefinitions",
+		"CustomResourceDefinition", false)
 	res = setAPIResourceList(res, "storage.k8s.io", "v1", "storageclasses", "StorageClass", false)
 	res = setAPIResourceList(res, "", "v1", "componentstatuses", "ComponentStatus", false)
 	res = setAPIResourceList(res, "", "v1", "persistentvolumes", "PersistentVolume", false)
@@ -65,45 +67,93 @@ func TestCluster(t *testing.T) {
 	kubeClient.Discovery().(*discoveryfake.FakeDiscovery).Fake.Resources = res
 
 	// Set resouces stored in snapshots
-	ukubeobjects = append(ukubeobjects, unstrctrdResource("", "v1", "", "ns1", "Namespace", "namespaces").DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, convertToUnstructured(t, newConfiguredSecret("secret1", corev1.SecretTypeOpaque)))
-	ukubeobjects = append(ukubeobjects, convertToUnstructured(t, newConfiguredSecret("token1", corev1.SecretTypeServiceAccountToken)))
-	ukubeobjects = append(ukubeobjects, unstrctrdResource("", "v1", "default", "svc1", "Service", "services").DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, unstrctrdResource("", "v1", "default", "svc1", "Endpoints", "endpoints").DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, unstrctrdResource("", "v1", "kube-system", "secret1", "Secret", "secrets").DeepCopyObject())
+	ukubeobjects = append(ukubeobjects,
+		unstrctrdResource("", "v1", "", "ns1", "Namespace", "namespaces").DeepCopyObject())
+	ukubeobjects = append(ukubeobjects,
+		convertToUnstructured(t, newConfiguredSecret("secret1", corev1.SecretTypeOpaque)))
+	ukubeobjects = append(ukubeobjects,
+		convertToUnstructured(t, newConfiguredSecret("token1", corev1.SecretTypeServiceAccountToken)))
+	ukubeobjects = append(ukubeobjects,
+		unstrctrdResource("", "v1", "default", "svc1", "Service", "services").DeepCopyObject())
+	ukubeobjects = append(ukubeobjects,
+		unstrctrdResource("", "v1", "default", "svc1", "Endpoints", "endpoints").DeepCopyObject())
+	ukubeobjects = append(ukubeobjects,
+		unstrctrdResource("", "v1", "kube-system", "secret1", "Secret", "secrets").DeepCopyObject())
+
 	pod := unstrctrdResource("", "v1", "default", "pod1", "Pod", "pods")
 	pod.SetOwnerReferences([]metav1.OwnerReference{metav1.OwnerReference{Name: "Pod-owner"}})
 	ukubeobjects = append(ukubeobjects, pod.DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, convertToUnstructured(t, newClusterRoleBinding("default")).DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, convertToUnstructured(t, newClusterRoleBinding("kube-system")).DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, unstrctrdResource("rbac.authorization.k8s.io", "v1", "", "cluster-admin", "ClusterRole", "clusterroles").DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, unstrctrdResource("rbac.authorization.k8s.io", "v1", "", "cluster-role1", "ClusterRole", "clusterroles").DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, unstrctrdResource("apiextensions.k8s.io", "v1", "", "crd.include.org", "CustomResourceDefinition", "customresourcedefinitions").DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, unstrctrdResource("apiextensions.k8s.io", "v1", "", "crd.exclude.org", "CustomResourceDefinition", "customresourcedefinitions").DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, unstrctrdResource("storage.k8s.io", "v1", "", "include-nfs-storage", "StorageClass", "storageclasses").DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, unstrctrdResource("storage.k8s.io", "v1", "", "exclude-nfs-storage", "StorageClass", "storageclasses").DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, unstrctrdResource("", "v1", "", "controller-manager", "ComponentStatus", "componentstatuses").DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, convertToUnstructured(t, newPV("pv1", "include-nfs-storage", "default", "pvc1")).DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, convertToUnstructured(t, newPVC("default", "pvc1", "include-nfs-storage", "pv1")).DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, convertToUnstructured(t, newPVC("default", "pvc2", "exclude-nfs-storage", "pv2")).DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, convertToUnstructured(t, newPVC("default", "pvc3", "include-nfs-storage", "pv3")).DeepCopyObject())
-	ukubeobjects = append(ukubeobjects, convertToUnstructured(t, newPVC("default", "pvc4", "include-nfs-storage", "")).DeepCopyObject())
+
+	ukubeobjects = append(ukubeobjects,
+		convertToUnstructured(t, newClusterRoleBinding("default")).DeepCopyObject())
+	ukubeobjects = append(ukubeobjects,
+		convertToUnstructured(t, newClusterRoleBinding("kube-system")).DeepCopyObject())
+	ukubeobjects = append(ukubeobjects, unstrctrdResource("rbac.authorization.k8s.io", "v1", "",
+		"cluster-admin", "ClusterRole", "clusterroles").DeepCopyObject())
+	ukubeobjects = append(ukubeobjects, unstrctrdResource("rbac.authorization.k8s.io", "v1", "",
+		"cluster-role1", "ClusterRole", "clusterroles").DeepCopyObject())
+	ukubeobjects = append(ukubeobjects, unstrctrdResource("apiextensions.k8s.io", "v1", "", "crd.include.org",
+		"CustomResourceDefinition", "customresourcedefinitions").DeepCopyObject())
+	ukubeobjects = append(ukubeobjects, unstrctrdResource("apiextensions.k8s.io", "v1", "", "crd.exclude.org",
+		"CustomResourceDefinition", "customresourcedefinitions").DeepCopyObject())
+	ukubeobjects = append(ukubeobjects, unstrctrdResource("storage.k8s.io", "v1", "", "include-nfs-storage",
+		"StorageClass", "storageclasses").DeepCopyObject())
+	ukubeobjects = append(ukubeobjects, unstrctrdResource("storage.k8s.io", "v1", "", "exclude-nfs-storage",
+		"StorageClass", "storageclasses").DeepCopyObject())
+	ukubeobjects = append(ukubeobjects,
+		unstrctrdResource("", "v1", "", "controller-manager", "ComponentStatus", "componentstatuses").DeepCopyObject())
+	ukubeobjects = append(ukubeobjects,
+		convertToUnstructured(t, newPV("pv1", "include-nfs-storage", "default", "pvc1")).DeepCopyObject())
+	ukubeobjects = append(ukubeobjects,
+		convertToUnstructured(t, newPVC("default", "pvc1", "include-nfs-storage", "pv1")).DeepCopyObject())
+	ukubeobjects = append(ukubeobjects,
+		convertToUnstructured(t, newPVC("default", "pvc2", "exclude-nfs-storage", "pv2")).DeepCopyObject())
+	ukubeobjects = append(ukubeobjects,
+		convertToUnstructured(t, newPVC("default", "pvc3", "include-nfs-storage", "pv3")).DeepCopyObject())
+	ukubeobjects = append(ukubeobjects,
+		convertToUnstructured(t, newPVC("default", "pvc4", "include-nfs-storage", "")).DeepCopyObject())
 
 	// Make dynamic client
 	sch := runtime.NewScheme()
-	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "NamespaceList"}, &unstructured.UnstructuredList{})
-	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "SecretList"}, &unstructured.UnstructuredList{})
-	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceList"}, &unstructured.UnstructuredList{})
-	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "EndpointList"}, &unstructured.UnstructuredList{})
-	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMapList"}, &unstructured.UnstructuredList{})
-	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "PodList"}, &unstructured.UnstructuredList{})
-	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBindingList"}, &unstructured.UnstructuredList{})
-	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleList"}, &unstructured.UnstructuredList{})
-	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinitionList"}, &unstructured.UnstructuredList{})
-	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "storage.k8s.io", Version: "v1", Kind: "StorageClassList"}, &unstructured.UnstructuredList{})
-	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ComponentStatusList"}, &unstructured.UnstructuredList{})
-	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "PersistentVolumeList"}, &unstructured.UnstructuredList{})
-	sch.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "PersistentVolumeClaimList"}, &unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "NamespaceList"},
+		&unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "SecretList"},
+		&unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceList"},
+		&unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "EndpointList"},
+		&unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMapList"},
+		&unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "PodList"},
+		&unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBindingList"},
+		&unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleList"},
+		&unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinitionList"},
+		&unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "storage.k8s.io", Version: "v1", Kind: "StorageClassList"},
+		&unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ComponentStatusList"},
+		&unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "PersistentVolumeList"},
+		&unstructured.UnstructuredList{})
+	sch.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "PersistentVolumeClaimList"},
+		&unstructured.UnstructuredList{})
 	dynamicClient := newDynamicClient(sch, 1, ukubeobjects...)
 	var snapstart bool
 
@@ -134,7 +184,7 @@ func TestCluster(t *testing.T) {
 		obj := action.(core.CreateAction).GetObject()
 		uobj := convertToUnstructured(t, obj)
 		newAction := core.NewCreateAction(action.GetResource(), action.GetNamespace(), uobj).DeepCopy()
-		dynamicClient.Fake.Invokes(newAction, uobj)
+		_, _ = dynamicClient.Fake.Invokes(newAction, uobj)
 		accessor, _ := meta.Accessor(obj)
 		accessor.SetResourceVersion(strconv.FormatUint(dynamicTracker.GetResourceVersion(), 10))
 
@@ -148,7 +198,7 @@ func TestCluster(t *testing.T) {
 
 		//t.Logf("Delete %s called", action.GetResource().Resource)
 
-		dynamicClient.Fake.Invokes(action, nil)
+		_, _ = dynamicClient.Fake.Invokes(action, nil)
 		return false, nil, nil
 	})
 
@@ -204,11 +254,13 @@ func TestCluster(t *testing.T) {
 	}
 
 	// Delete PV/PVCs and Reactor for getting PVC to test restoring
-	err = dynamicTracker.Delete(schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumes"}, "", "pv1")
+	err = dynamicTracker.Delete(
+		schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumes"}, "", "pv1")
 	if err != nil {
 		t.Errorf("Error in delete pv : %s", err.Error())
 	}
-	err = dynamicTracker.Delete(schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumeclaims"}, "default", "pvc1")
+	err = dynamicTracker.Delete(
+		schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumeclaims"}, "default", "pvc1")
 	if err != nil {
 		t.Errorf("Error in delete pvc : %s", err.Error())
 	}
@@ -429,8 +481,12 @@ func newDynamicClient(scheme *runtime.Scheme, rv uint64, objects ...runtime.Obje
 
 	// In order to use List with this client, you have to have the v1.List registered in your scheme. Neat thing though
 	// it does NOT have to be the *same* list
-	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "fake-dynamic-client-group", Version: "v1", Kind: "List"}, &unstructured.UnstructuredList{})
-	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"}, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "fake-dynamic-client-group", Version: "v1", Kind: "List"},
+		&unstructured.UnstructuredList{})
+	scheme.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
+		&unstructured.Unstructured{})
 
 	codecs := serializer.NewCodecFactory(scheme)
 	dynamicTracker = NewObjectTracker(scheme, codecs.UniversalDecoder(), rv)
@@ -478,7 +534,8 @@ func unstrctrdResource(group, version, ns, name, kind, resourcename string) *uns
 	return item
 }
 
-func setAPIResourceList(resources []*metav1.APIResourceList, group, version, name, kind string, namespaced bool) []*metav1.APIResourceList {
+func setAPIResourceList(resources []*metav1.APIResourceList,
+	group, version, name, kind string, namespaced bool) []*metav1.APIResourceList {
 	gv := group + "/" + version
 	if group == "" {
 		gv = version
@@ -588,7 +645,7 @@ func newClusterRoleBinding(ns string) *rbac.ClusterRoleBinding {
 	return &rbac.ClusterRoleBinding{
 		TypeMeta: metav1.TypeMeta{APIVersion: "rbac.authorization.k8s.io/v1", Kind: "ClusterRoleBinding"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:     "cluster-admin-" + ns,
+			Name: "cluster-admin-" + ns,
 		},
 		Subjects: []rbac.Subject{
 			rbac.Subject{Kind: "ServiceAccount", Name: "default", Namespace: ns},
@@ -601,7 +658,7 @@ func newPV(name, class, claimns, claimname string) *corev1.PersistentVolume {
 	return &corev1.PersistentVolume{
 		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "PersistentVolume"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:     name,
+			Name: name,
 		},
 		Spec: corev1.PersistentVolumeSpec{
 			ClaimRef:         &corev1.ObjectReference{Namespace: claimns, Name: claimname},

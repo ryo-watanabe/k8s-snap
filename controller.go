@@ -74,7 +74,8 @@ type Controller struct {
 	labels    map[string]string
 
 	clusterCmd cluster.Cluster
-	getBucket  func(ctx context.Context, namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error)
+	getBucket  func(ctx context.Context, namespace, objectstoreConfig string, kubeclient kubernetes.Interface,
+		client clientset.Interface, insecure bool) (objectstore.Objectstore, error)
 }
 
 // NewController returns a new controller
@@ -171,7 +172,8 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 	//klog.Info("Checking CRDs")
 
 	klog.Info("Checking objectstore buckets")
-	osConfigs, err := c.cbclientset.ClustersnapshotV1alpha1().ObjectstoreConfigs(c.namespace).List(ctx, metav1.ListOptions{})
+	osConfigs, err := c.cbclientset.ClustersnapshotV1alpha1().ObjectstoreConfigs(c.namespace).List(
+		ctx, metav1.ListOptions{})
 	if err != nil {
 		klog.Fatalf("List Objectstore Config error : %s", err.Error())
 	}
@@ -181,7 +183,8 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 		if err != nil {
 			klog.Fatalf("Get bucket error for ObjectstoreConfig %s * %s", os.ObjectMeta.Name, err.Error())
 		}
-		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s", bucket.GetName(), bucket.GetEndpoint(), bucket.GetBucketName())
+		klog.Infof("- Objectstore Config name:%s endpoint:%s bucket:%s",
+			bucket.GetName(), bucket.GetEndpoint(), bucket.GetBucketName())
 
 		found, err := bucket.ChkBucket()
 		if err != nil {
@@ -247,9 +250,11 @@ func (c *Controller) Run(snapshotthreads, restorethreads int, stopCh <-chan stru
 	return nil
 }
 
-func getBucketFunc(ctx context.Context, namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error) {
+func getBucketFunc(ctx context.Context, namespace, objectstoreConfig string, kubeclient kubernetes.Interface,
+	client clientset.Interface, insecure bool) (objectstore.Objectstore, error) {
 	// bucket
-	osConfig, err := client.ClustersnapshotV1alpha1().ObjectstoreConfigs(namespace).Get(ctx, objectstoreConfig, metav1.GetOptions{})
+	osConfig, err := client.ClustersnapshotV1alpha1().ObjectstoreConfigs(namespace).Get(
+		ctx, objectstoreConfig, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -264,4 +269,3 @@ func getBucketFunc(ctx context.Context, namespace, objectstoreConfig string, kub
 
 	return bucket, nil
 }
-

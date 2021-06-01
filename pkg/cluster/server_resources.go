@@ -9,9 +9,10 @@ import (
 	"k8s.io/client-go/discovery"
 )
 
+// ServerResources holds informations of API resources
 type ServerResources struct {
 	serverResources []*metav1.APIResourceList
-	resourceNames map[schema.GroupVersionKind]string
+	resourceNames   map[schema.GroupVersionKind]string
 }
 
 func matchVerbs(groupVersion string, r *metav1.APIResource) bool {
@@ -21,14 +22,16 @@ func matchVerbs(groupVersion string, r *metav1.APIResource) bool {
 func newServerResources(sr []*metav1.APIResourceList) *ServerResources {
 	return &ServerResources{
 		serverResources: discovery.FilteredBy(discovery.ResourcePredicateFunc(matchVerbs), sr),
-		resourceNames: make(map[schema.GroupVersionKind]string),
+		resourceNames:   make(map[schema.GroupVersionKind]string),
 	}
 }
 
+// GetResources returns server resources struct
 func (sr *ServerResources) GetResources() []*metav1.APIResourceList {
 	return sr.serverResources
 }
 
+// ResourceName get resource string from GroupVersionKind
 func (sr *ServerResources) ResourceName(gvk schema.GroupVersionKind) (string, error) {
 	if name, ok := sr.resourceNames[gvk]; ok {
 		return name, nil
@@ -48,6 +51,7 @@ func (sr *ServerResources) ResourceName(gvk schema.GroupVersionKind) (string, er
 	return "", fmt.Errorf("unable to find %s in server resources", gvk)
 }
 
+// ResourcePath returns an API path of the resource
 func (sr *ServerResources) ResourcePath(item *unstructured.Unstructured) (string, error) {
 	path := "/api/v1"
 	apiversion := item.GetAPIVersion()

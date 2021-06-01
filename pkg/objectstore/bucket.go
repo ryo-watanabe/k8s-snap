@@ -103,7 +103,7 @@ func (b *Bucket) setSession() (*session.Session, error) {
 	var client *http.Client
 	if b.insecure {
 		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 		}
 		client = &http.Client{Transport: tr}
 	} else {

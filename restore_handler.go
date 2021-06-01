@@ -24,10 +24,6 @@ func (c *Controller) runRestoreWorker() {
 	for c.processNextRestoreItem(false) {
 	}
 }
-func (c *Controller) runRestoreQueuer() {
-	for c.processNextRestoreItem(true) {
-	}
-}
 
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the syncHandler.
@@ -98,16 +94,17 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 		}
 
 		// snapshot
-		snapshot, err := c.cbclientset.ClustersnapshotV1alpha1().Snapshots(c.namespace).Get(ctx, restore.Spec.SnapshotName, metav1.GetOptions{})
+		snapshot, err := c.cbclientset.ClustersnapshotV1alpha1().Snapshots(c.namespace).Get(
+			ctx, restore.Spec.SnapshotName, metav1.GetOptions{})
 		if err != nil {
-			restore, err = c.updateRestoreStatus(ctx, restore, "Failed", err.Error())
+			_, err = c.updateRestoreStatus(ctx, restore, "Failed", err.Error())
 			if err != nil {
 				return err
 			}
 			return nil
 		}
 		if snapshot.Status.Phase != "Completed" {
-			restore, err = c.updateRestoreStatus(ctx, restore, "Failed", "Snapshot data is not in status 'Completed'")
+			_, err = c.updateRestoreStatus(ctx, restore, "Failed", "Snapshot data is not in status 'Completed'")
 			if err != nil {
 				return err
 			}
@@ -116,9 +113,10 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 		restore.Status.NumSnapshotContents = snapshot.Status.NumberOfContents
 
 		// bucket
-		osConfig, err := c.cbclientset.ClustersnapshotV1alpha1().ObjectstoreConfigs(c.namespace).Get(ctx, snapshot.Spec.ObjectstoreConfig, metav1.GetOptions{})
+		osConfig, err := c.cbclientset.ClustersnapshotV1alpha1().ObjectstoreConfigs(c.namespace).Get(
+			ctx, snapshot.Spec.ObjectstoreConfig, metav1.GetOptions{})
 		if err != nil {
-			restore, err = c.updateRestoreStatus(ctx, restore, "Failed", err.Error())
+			_, err = c.updateRestoreStatus(ctx, restore, "Failed", err.Error())
 			if err != nil {
 				return err
 			}
@@ -126,21 +124,24 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 		}
 
 		// cloud credentials secret
-		cred, err := c.kubeclientset.CoreV1().Secrets(c.namespace).Get(ctx, osConfig.Spec.CloudCredentialSecret, metav1.GetOptions{})
+		cred, err := c.kubeclientset.CoreV1().Secrets(c.namespace).Get(
+			ctx, osConfig.Spec.CloudCredentialSecret, metav1.GetOptions{})
 		if err != nil {
-			restore, err = c.updateRestoreStatus(ctx, restore, "Failed", err.Error())
+			_, err = c.updateRestoreStatus(ctx, restore, "Failed", err.Error())
 			if err != nil {
 				return err
 			}
 			return nil
 		}
 		bucket := objectstore.NewBucket(osConfig.ObjectMeta.Name, string(cred.Data["accesskey"]),
-			string(cred.Data["secretkey"]), osConfig.Spec.Endpoint, osConfig.Spec.Region, osConfig.Spec.Bucket, c.insecure)
+			string(cred.Data["secretkey"]), osConfig.Spec.Endpoint, osConfig.Spec.Region,
+			osConfig.Spec.Bucket, c.insecure)
 
 		// preference
-		pref, err := c.cbclientset.ClustersnapshotV1alpha1().RestorePreferences(c.namespace).Get(ctx, restore.Spec.RestorePreferenceName, metav1.GetOptions{})
+		pref, err := c.cbclientset.ClustersnapshotV1alpha1().RestorePreferences(c.namespace).Get(
+			ctx, restore.Spec.RestorePreferenceName, metav1.GetOptions{})
 		if err != nil {
-			restore, err = c.updateRestoreStatus(ctx, restore, "Failed", err.Error())
+			_, err = c.updateRestoreStatus(ctx, restore, "Failed", err.Error())
 			if err != nil {
 				return err
 			}
@@ -150,7 +151,7 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 		// do restore
 		err = c.clusterCmd.Restore(restore, pref, bucket)
 		if err != nil {
-			restore, err = c.updateRestoreStatus(ctx, restore, "Failed", err.Error())
+			_, err = c.updateRestoreStatus(ctx, restore, "Failed", err.Error())
 			if err != nil {
 				return err
 			}
@@ -173,7 +174,7 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 				restore.Spec.TTL.Duration = 24 * 7 * time.Hour
 			}
 		} else if restore.Spec.AvailableUntil.Before(&nowTime) {
-			restore, err = c.updateRestoreStatus(ctx, restore, "Failed", "AvailableUntil is set as past.")
+			_, err = c.updateRestoreStatus(ctx, restore, "Failed", "AvailableUntil is set as past.")
 			if err != nil {
 				return err
 			}
@@ -216,7 +217,7 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 	if !restore.Status.AvailableUntil.IsZero() && restore.Status.AvailableUntil.Before(&nowTime) {
 		err := c.cbclientset.ClustersnapshotV1alpha1().Restores(c.namespace).Delete(ctx, name, metav1.DeleteOptions{})
 		if err != nil {
-			restore, err = c.updateRestoreStatus(ctx, restore, "Failed", err.Error())
+			_, err = c.updateRestoreStatus(ctx, restore, "Failed", err.Error())
 			if err != nil {
 				return err
 			}
@@ -230,12 +231,14 @@ func (c *Controller) restoreSyncHandler(key string, queueonly bool) error {
 	return nil
 }
 
-func (c *Controller) updateRestoreStatus(ctx context.Context, restore *cbv1alpha1.Restore, phase, reason string) (*cbv1alpha1.Restore, error) {
+func (c *Controller) updateRestoreStatus(ctx context.Context, restore *cbv1alpha1.Restore,
+	phase, reason string) (*cbv1alpha1.Restore, error) {
 	restoreCopy := restore.DeepCopy()
 	restoreCopy.Status.Phase = phase
 	restoreCopy.Status.Reason = reason
 	klog.Infof("restore:%s status %s => %s : %s", restore.ObjectMeta.Name, restore.Status.Phase, phase, reason)
-	restore, err := c.cbclientset.ClustersnapshotV1alpha1().Restores(restore.Namespace).Update(ctx, restoreCopy, metav1.UpdateOptions{})
+	restore, err := c.cbclientset.ClustersnapshotV1alpha1().Restores(restore.Namespace).Update(
+		ctx, restoreCopy, metav1.UpdateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("Failed to update restore status for " + restore.ObjectMeta.Name + " : " + err.Error())
 	}
@@ -265,4 +268,3 @@ func (c *Controller) enqueueRestore(obj interface{}) {
 	}
 	c.restoreQueue.AddRateLimited(key)
 }
-

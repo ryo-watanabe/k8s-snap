@@ -107,7 +107,7 @@ func SnapshotWithClient(
 
 	discoveryClient := kubeClient.Discovery()
 
-	spr, err := discoveryClient.ServerResources()
+	_, spr, err := discoveryClient.ServerGroupsAndResources()
 	if err != nil {
 
 		// This is the first time that k8s api of  target cluster accessed
@@ -220,8 +220,8 @@ func SnapshotWithClient(
 				continue
 			}
 			targetIndex := -1
-			for i, u := range snapshotList {
-				targetItemPath, _ := sr.ResourcePath(&u)
+			for i := range snapshotList {
+				targetItemPath, _ := sr.ResourcePath(&snapshotList[i])
 				if targetItemPath == resourcePath {
 					targetIndex = i
 					break
@@ -261,18 +261,18 @@ func SnapshotWithClient(
 		return fmt.Errorf("Creating tgz file failed : %s", err.Error())
 	}
 	tgz := gzip.NewWriter(snapshotFile)
-	defer tgz.Close()
+	defer func() { _ = tgz.Close() }()
 
 	tarWriter := tar.NewWriter(tgz)
-	defer tarWriter.Close()
+	defer func() { _ = tarWriter.Close() }()
 
 	// Write resources into json
 	snapshot.Status.Contents = nil
 	snapshot.Status.NumberOfContents = 0
-	for _, item := range snapshotList {
+	for i, item := range snapshotList {
 
 		// Resources stored according to api path.
-		itempath, _ := sr.ResourcePath(&item)
+		itempath, _ := sr.ResourcePath(&snapshotList[i])
 		// Namespaces and CRDs stored on top level.
 		if item.GetKind() == "Namespace" {
 			itempath = filepath.Join("/namespaces", item.GetName())
@@ -344,9 +344,9 @@ func SnapshotWithClient(
 		return fmt.Errorf("tar writer snapshot.json content failed : %s", err.Error())
 	}
 
-	tarWriter.Close()
-	tgz.Close()
-	snapshotFile.Close()
+	_ = tarWriter.Close()
+	_ = tgz.Close()
+	_ = snapshotFile.Close()
 
 	return nil
 }
@@ -374,10 +374,10 @@ func UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket objectstore.Objectstor
 	blog := utils.NewNamedLog("snapshot:" + snapshot.ObjectMeta.Name)
 
 	snapshotFile, err := os.Open("/tmp/" + snapshot.ObjectMeta.Name + ".tgz")
-	defer snapshotFile.Close()
 	if err != nil {
 		return backoff.Permanent(fmt.Errorf("Re-opening tgz file failed : %s", err.Error()))
 	}
+	defer func() { _ = snapshotFile.Close() }()
 	blog.Infof("Uploading file %s", snapshot.ObjectMeta.Name+".tgz")
 	err = bucket.Upload(snapshotFile, snapshot.ObjectMeta.Name+".tgz")
 	if err != nil {

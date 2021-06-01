@@ -22,8 +22,8 @@ import (
 	"github.com/ryo-watanabe/k8s-snap/pkg/utils"
 )
 
-func loadItem(item *unstructured.Unstructured, filepath string) error {
-	bytes, err := ioutil.ReadFile(filepath)
+func loadItem(item *unstructured.Unstructured, fpath string) error {
+	bytes, err := ioutil.ReadFile(filepath.Clean(fpath))
 	if err != nil {
 		return err
 	}
@@ -35,7 +35,8 @@ func loadItem(item *unstructured.Unstructured, filepath string) error {
 }
 
 // Create resource
-func createItem(ctx context.Context, item *unstructured.Unstructured, dyn dynamic.Interface, sr *ServerResources) (*unstructured.Unstructured, error) {
+func createItem(ctx context.Context, item *unstructured.Unstructured,
+	dyn dynamic.Interface, sr *ServerResources) (*unstructured.Unstructured, error) {
 	gv, err := schema.ParseGroupVersion(item.GetAPIVersion())
 	if err != nil {
 		return nil, err
@@ -165,7 +166,7 @@ func writeFile(filepath string, tarReader *tar.Reader) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	if _, err := io.Copy(file, tarReader); err != nil {
 		return err
 	}
@@ -202,7 +203,7 @@ func downloadSnapshot(restore *cbv1alpha1.Restore, bucket objectstore.Objectstor
 	// Download
 	rlog.Infof("Downloading file %s", restore.Spec.SnapshotName+".tgz")
 	snapshotFile, err := os.Create("/tmp/" + restore.Spec.SnapshotName + ".tgz")
-	defer snapshotFile.Close()
+	defer func() { _ = snapshotFile.Close() }()
 	if err != nil {
 		return err
 	}
@@ -223,7 +224,7 @@ func restoreResources(
 
 	// Server Resources
 	discoveryClient := kubeClient.Discovery()
-	spr, err := discoveryClient.ServerResources()
+	_, spr, err := discoveryClient.ServerGroupsAndResources()
 	if err != nil {
 		return err
 	}
@@ -253,7 +254,7 @@ func restoreResources(
 	if err != nil {
 		return err
 	}
-	defer tgz.Close()
+	defer func() { _ = tgz.Close() }()
 
 	tarReader := tar.NewReader(tgz)
 
@@ -325,7 +326,7 @@ func restoreResources(
 		}
 	}
 	// Reload Server Resources after CRDs restored
-	spr, err = discoveryClient.ServerResources()
+	_, spr, err = discoveryClient.ServerGroupsAndResources()
 	if err != nil {
 		return err
 	}

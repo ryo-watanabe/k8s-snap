@@ -1,6 +1,0 @@
-{
-  "Enable": ["goimports", "vet", "golint", "misspell"],
-  "EnableAll": false,
-  "Vendor": true,
-  "Deadline": "1m"
-}

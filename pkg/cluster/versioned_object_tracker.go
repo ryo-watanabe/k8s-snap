@@ -103,7 +103,8 @@ func (t *tracker) GetResourceVersion() uint64 {
 	return t.intResourceVersion
 }
 
-func (t *tracker) List(gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, ns string) (runtime.Object, error) {
+func (t *tracker) List(gvr schema.GroupVersionResource, gvk schema.GroupVersionKind,
+	ns string) (runtime.Object, error) {
 	// Heuristic for list kind: original kind + List suffix. Might
 	// not always be true but this tracker has a pretty limited
 	// understanding of the actual API model.
@@ -272,7 +273,8 @@ func (t *tracker) add(gvr schema.GroupVersionResource, obj runtime.Object, ns st
 	}
 
 	if ns != newMeta.GetNamespace() {
-		msg := fmt.Sprintf("request namespace does not match object namespace, request: %q object: %q", ns, newMeta.GetNamespace())
+		msg := fmt.Sprintf("request namespace does not match object namespace, request: %q object: %q",
+			ns, newMeta.GetNamespace())
 		return errors.NewBadRequest(msg)
 	}
 
@@ -362,7 +364,7 @@ func (t *tracker) Delete(gvr schema.GroupVersionResource, ns, name string) error
 // match provided namespace. Empty namespace matches
 // non-namespaced objects.
 func filterByNamespace(objs map[types.NamespacedName]runtime.Object, ns string) ([]runtime.Object, error) {
-	var res []runtime.Object
+	res := []runtime.Object{}
 
 	for _, obj := range objs {
 		acc, err := meta.Accessor(obj)

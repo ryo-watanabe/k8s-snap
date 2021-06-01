@@ -20,7 +20,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 
@@ -82,7 +81,7 @@ func TestSnapshot(t *testing.T) {
 
 	// Init klog
 	klog.InitFlags(nil)
-	flag.Set("logtostderr", "true")
+	_ = flag.Set("logtostderr", "true")
 	flag.Parse()
 	klog.Infof("k8s-snap pkg main test")
 	klog.Flush()
@@ -201,7 +200,8 @@ func TestSnapshot(t *testing.T) {
 	// 4:Add expiration to failed snapshot
 	cases[4].snapshots[0].Spec.TTL.Duration = dur
 	cases[4].updatedSnapshots[0].Spec.TTL.Duration = dur
-	cases[4].updatedSnapshots[0].Status.AvailableUntil = metav1.NewTime(cases[4].updatedSnapshots[0].ObjectMeta.CreationTimestamp.Add(dur))
+	cases[4].updatedSnapshots[0].Status.AvailableUntil = metav1.NewTime(
+		cases[4].updatedSnapshots[0].ObjectMeta.CreationTimestamp.Add(dur))
 	cases[4].updatedSnapshots[0].Status.TTL.Duration = dur
 	// 5:Mark Failed to InProgress snapshot
 	cases[5].updatedSnapshots[0].Status.Reason = "Controller stopped while taking the snapshot"
@@ -216,7 +216,8 @@ func TestSnapshot(t *testing.T) {
 	cases[7].snapshots[0].Spec.AvailableUntil = future
 	cases[7].updatedSnapshots[0].Spec.AvailableUntil = future
 	cases[7].updatedSnapshots[0].Status.AvailableUntil = future
-	cases[7].updatedSnapshots[0].Status.TTL.Duration = future.Time.Sub(cases[7].snapshots[0].ObjectMeta.CreationTimestamp.Time)
+	cases[7].updatedSnapshots[0].Status.TTL.Duration = future.Time.Sub(
+		cases[7].snapshots[0].ObjectMeta.CreationTimestamp.Time)
 	// 8:Expiration edited
 	cases[8].snapshots[0].Spec.AvailableUntil = past
 	cases[8].snapshots[0].Status.AvailableUntil = future
@@ -233,8 +234,8 @@ func TestSnapshot(t *testing.T) {
 	// 13:Key not found (not error)
 	// 14:Invalid key (not error)
 
-	for _, c := range cases {
-		SnapshotTestCase(&c, t)
+	for i := range cases {
+		SnapshotTestCase(&cases[i], t)
 	}
 }
 
@@ -370,7 +371,8 @@ func TestRestore(t *testing.T) {
 	// 8:Expiration for failed restore
 	cases[8].restores[0].Spec.TTL.Duration = dur
 	cases[8].updatedRestores[0].Spec.TTL.Duration = dur
-	cases[8].updatedRestores[0].Status.AvailableUntil = metav1.NewTime(cases[8].restores[0].ObjectMeta.CreationTimestamp.Add(dur))
+	cases[8].updatedRestores[0].Status.AvailableUntil = metav1.NewTime(
+		cases[8].restores[0].ObjectMeta.CreationTimestamp.Add(dur))
 	cases[8].updatedRestores[0].Status.TTL.Duration = dur
 	// 9:Past date AvailableUntil
 	past := metav1.NewTime(time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC))
@@ -382,7 +384,8 @@ func TestRestore(t *testing.T) {
 	cases[10].restores[0].Spec.AvailableUntil = future
 	cases[10].updatedRestores[0].Spec.AvailableUntil = future
 	cases[10].updatedRestores[0].Status.AvailableUntil = future
-	cases[10].updatedRestores[0].Status.TTL.Duration = future.Time.Sub(cases[10].restores[0].ObjectMeta.CreationTimestamp.Time)
+	cases[10].updatedRestores[0].Status.TTL.Duration = future.Time.Sub(
+		cases[10].restores[0].ObjectMeta.CreationTimestamp.Time)
 	// 11:Expiration edited
 	cases[11].restores[0].Spec.AvailableUntil = past
 	cases[11].restores[0].Status.AvailableUntil = future
@@ -391,8 +394,8 @@ func TestRestore(t *testing.T) {
 	// 12:Key not found (not error)
 	// 13:Invalid key (not error)
 
-	for _, c := range cases {
-		RestoreTestCase(&c, t)
+	for i := range cases {
+		RestoreTestCase(&cases[i], t)
 	}
 }
 
@@ -406,8 +409,7 @@ type fixture struct {
 	snapshotLister []*clustersnapshot.Snapshot
 	restoreLister  []*clustersnapshot.Restore
 	// Actions expected to happen on the client.
-	kubeactions []core.Action
-	actions     []core.Action
+	actions []core.Action
 	// Objects from here preloaded into NewSimpleFake.
 	kubeobjects []runtime.Object
 	objects     []runtime.Object
@@ -521,11 +523,11 @@ func (c *mockCluster) UploadSnapshot(snapshot *cbv1alpha1.Snapshot, bucket objec
 // Restore for fake cluster interface
 var restoreErr error
 
-func (c *mockCluster) Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference, bucket objectstore.Objectstore) error {
+func (c *mockCluster) Restore(restore *cbv1alpha1.Restore, pref *cbv1alpha1.RestorePreference,
+	bucket objectstore.Objectstore) error {
 	return restoreErr
 }
 
-//func (f *fixture) newController() (*Controller, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 func (f *fixture) newController() (*Controller, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 	f.client = fake.NewSimpleClientset(f.objects...)
 	f.dynamic = dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
@@ -551,11 +553,11 @@ func (f *fixture) newController() (*Controller, informers.SharedInformerFactory,
 
 func (f *fixture) initInformers(i informers.SharedInformerFactory, k8sI kubeinformers.SharedInformerFactory) {
 	for _, p := range f.snapshotLister {
-		i.Clustersnapshot().V1alpha1().Snapshots().Informer().GetIndexer().Add(p)
+		_ = i.Clustersnapshot().V1alpha1().Snapshots().Informer().GetIndexer().Add(p)
 	}
 
 	for _, p := range f.restoreLister {
-		i.Clustersnapshot().V1alpha1().Restores().Informer().GetIndexer().Add(p)
+		_ = i.Clustersnapshot().V1alpha1().Restores().Informer().GetIndexer().Add(p)
 	}
 }
 
@@ -572,10 +574,6 @@ func (f *fixture) run(c *Controller, name, res string) {
 
 func (f *fixture) runQueueOnly(c *Controller, name, res string) {
 	f.runTest(c, name, res, false, true)
-}
-
-func (f *fixture) runExpectError(c *Controller, name, res string) {
-	f.runTest(c, name, res, true, false)
 }
 
 func (f *fixture) runTest(c *Controller, name, res string, expectError, queueOnly bool) {
@@ -613,7 +611,8 @@ func (f *fixture) runTest(c *Controller, name, res string, expectError, queueOnl
 // checkAction verifies that expected and actual actions are equal and both have
 // same attached resources
 func checkAction(expected, actual core.Action, t *testing.T) {
-	if !(expected.Matches(actual.GetVerb(), actual.GetResource().Resource) && actual.GetSubresource() == expected.GetSubresource()) {
+	if !(expected.Matches(actual.GetVerb(), actual.GetResource().Resource) &&
+		actual.GetSubresource() == expected.GetSubresource()) {
 		t.Errorf("Expected\n\t%#v\ngot\n\t%#v", expected, actual)
 		return
 	}
@@ -623,30 +622,29 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		return
 	}
 
-	//t.Logf("Chacking Action %s %s", actual.GetVerb(), actual.GetResource().Resource)
-
-	switch a := actual.(type) {
-	case core.CreateAction:
-		e, _ := expected.(core.CreateAction)
+	if e, ok := expected.(core.CreateAction); ok {
 		expObject := e.GetObject()
+		a, _ := actual.(core.CreateAction)
 		object := a.GetObject()
 
 		if !reflect.DeepEqual(expObject, object) {
 			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
 				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
 		}
-	case core.UpdateAction:
-		e, _ := expected.(core.UpdateAction)
+	}
+	if e, ok := expected.(core.UpdateAction); ok {
 		expObject := e.GetObject()
+		a, _ := actual.(core.UpdateAction)
 		object := a.GetObject()
 
 		if !reflect.DeepEqual(expObject, object) {
 			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
 				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
 		}
-	case core.PatchAction:
-		e, _ := expected.(core.PatchAction)
+	}
+	if e, ok := expected.(core.PatchAction); ok {
 		expPatch := e.GetPatch()
+		a, _ := actual.(core.PatchAction)
 		patch := a.GetPatch()
 
 		if !reflect.DeepEqual(expPatch, patch) {
@@ -676,35 +674,23 @@ func filterInformerActions(actions []core.Action) []core.Action {
 }
 
 func (f *fixture) expectUpdateSnapshotAction(s *clustersnapshot.Snapshot) {
-	f.actions = append(f.actions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "snapshots"}, s.Namespace, s))
+	f.actions = append(f.actions, core.NewUpdateAction(
+		schema.GroupVersionResource{Resource: "snapshots"}, s.Namespace, s))
 }
 
 func (f *fixture) expectDeleteSnapshotAction(s *clustersnapshot.Snapshot) {
-	f.actions = append(f.actions, core.NewDeleteAction(schema.GroupVersionResource{Resource: "snapshots"}, s.Namespace, s.Name))
+	f.actions = append(f.actions, core.NewDeleteAction(
+		schema.GroupVersionResource{Resource: "snapshots"}, s.Namespace, s.Name))
 }
 
 func (f *fixture) expectUpdateRestoreAction(s *clustersnapshot.Restore) {
-	f.actions = append(f.actions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "restores"}, s.Namespace, s))
+	f.actions = append(f.actions, core.NewUpdateAction(
+		schema.GroupVersionResource{Resource: "restores"}, s.Namespace, s))
 }
 
 func (f *fixture) expectDeleteRestoreAction(s *clustersnapshot.Restore) {
-	f.actions = append(f.actions, core.NewDeleteAction(schema.GroupVersionResource{Resource: "restores"}, s.Namespace, s.Name))
-}
-
-func (f *fixture) expectUpdateSnapshotStatusAction(s *clustersnapshot.Snapshot) {
-	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "snapshots"}, s.Namespace, s)
-	// TODO: Until #38113 is merged, we can't use Subresource
-	//action.Subresource = "status"
-	f.actions = append(f.actions, action)
-}
-
-func getKey(obj interface{}, t *testing.T) string {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-	if err != nil {
-		t.Errorf("Unexpected error getting key for proxy %v: %v", obj, err)
-		return ""
-	}
-	return key
+	f.actions = append(f.actions, core.NewDeleteAction(
+		schema.GroupVersionResource{Resource: "restores"}, s.Namespace, s.Name))
 }
 
 func SnapshotTestCase(c *Case, t *testing.T) {
@@ -807,14 +793,16 @@ func TestQueues(t *testing.T) {
 
 	cntl.enqueueSnapshot(snap)
 	cntl.processNextSnapshotItem(false)
-	handledSnap, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get(ctx, "test1", metav1.GetOptions{})
+	handledSnap, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get(
+		ctx, "test1", metav1.GetOptions{})
 	if handledSnap.Status.Phase != "InQueue" {
 		t.Errorf("Handled snap status not correct : %s", handledSnap.Status.Phase)
 	}
 
 	cntl.enqueueRestore(restore)
 	cntl.processNextRestoreItem(false)
-	handledRestore, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Restores(cntl.namespace).Get(ctx, "test1", metav1.GetOptions{})
+	handledRestore, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Restores(cntl.namespace).Get(
+		ctx, "test1", metav1.GetOptions{})
 	if handledRestore.Status.Phase != "InQueue" {
 		t.Errorf("Handled restore status not correct : %s", handledRestore.Status.Phase)
 	}
@@ -864,7 +852,8 @@ func (b bucketMock) ListObjectInfo() ([]objectstore.ObjectInfo, error) {
 	return objectInfoList, nil
 }
 
-func getBucketMock(ctx context.Context, namespace, objectstoreConfig string, kubeclient kubernetes.Interface, client clientset.Interface, insecure bool) (objectstore.Objectstore, error) {
+func getBucketMock(ctx context.Context, namespace, objectstoreConfig string, kubeclient kubernetes.Interface,
+	client clientset.Interface, insecure bool) (objectstore.Objectstore, error) {
 	return bucketMock{}, nil
 }
 
@@ -882,7 +871,8 @@ func newBucketTestController(t *testing.T, snapshots []*clustersnapshot.Snapshot
 	return cntl
 }
 
-func doSyncObjects(t *testing.T, cntl *Controller, deleteOrphanObjects, restoreOrphanedSnapshots, validateFileinfo bool) {
+func doSyncObjects(t *testing.T, cntl *Controller, deleteOrphanObjects,
+	restoreOrphanedSnapshots, validateFileinfo bool) {
 	err := cntl.syncObjects(deleteOrphanObjects, restoreOrphanedSnapshots, validateFileinfo)
 	if err != nil {
 		t.Errorf("Error in do nothing in syncObject : %s", err.Error())
@@ -890,7 +880,8 @@ func doSyncObjects(t *testing.T, cntl *Controller, deleteOrphanObjects, restoreO
 }
 
 func chkSnapshot(t *testing.T, cntl *Controller, name, status, reason string) {
-	snap, err := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	snap, err := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get(
+		context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Error get snapshot %s : %s", name, err.Error())
 	}
@@ -902,6 +893,7 @@ func chkSnapshot(t *testing.T, cntl *Controller, name, status, reason string) {
 func TestBucket(t *testing.T) {
 
 	// Delete object
+	t.Logf("Test:Delete object")
 	snapshots := []*clustersnapshot.Snapshot{newConfiguredSnapshot("test1", "Completed")}
 	cntl := newBucketTestController(t, snapshots)
 	cntl.deleteSnapshot(snapshots[0])
@@ -910,11 +902,13 @@ func TestBucket(t *testing.T) {
 	}
 
 	// Do nothing in syncObjects
+	t.Logf("Test:Do nothing in syncObjects")
 	snapshots = []*clustersnapshot.Snapshot{}
 	cntl = newBucketTestController(t, snapshots)
 	doSyncObjects(t, cntl, false, false, false)
 
 	// syncObjects bucket data repair
+	t.Logf("Test:syncObjects bucket data repair")
 	snapshots = []*clustersnapshot.Snapshot{newConfiguredSnapshot("test1", "Completed")}
 	snapshots[0].Status.StoredTimestamp = metav1.NewTime(time.Date(2001, 5, 20, 23, 59, 59, 0, time.UTC)).Rfc3339Copy()
 	snapshots[0].Status.StoredFileSize = int64(131072)
@@ -928,12 +922,17 @@ func TestBucket(t *testing.T) {
 	}
 	cntl = newBucketTestController(t, snapshots)
 	doSyncObjects(t, cntl, true, false, false)
-	updatedSnap, _ := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get(context.TODO(), "test1", metav1.GetOptions{})
+	updatedSnap, err := cntl.cbclientset.ClustersnapshotV1alpha1().Snapshots(cntl.namespace).Get(
+		context.TODO(), "test1", metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("Error update snapshot : %s", err.Error())
+	}
 	if updatedSnap.Spec.ObjectstoreConfig != "bucket" {
 		t.Errorf("Error updated snapshot config is not match : %s", updatedSnap.Spec.ObjectstoreConfig)
 	}
 
 	// syncObjects orphan object and delete
+	t.Logf("Test:syncObjects orphan object and delete")
 	snapshots = []*clustersnapshot.Snapshot{}
 	objectInfoList = []objectstore.ObjectInfo{
 		objectstore.ObjectInfo{
@@ -950,6 +949,7 @@ func TestBucket(t *testing.T) {
 	}
 
 	// syncObjects find snapshot without object and set Failed
+	t.Logf("Test:syncObjects find snapshot without object and set Failed")
 	snapshots = []*clustersnapshot.Snapshot{
 		newConfiguredSnapshot("test1", "Completed"),
 	}
@@ -959,6 +959,7 @@ func TestBucket(t *testing.T) {
 	chkSnapshot(t, cntl, "test1", "Failed", "Snapshot file not found")
 
 	// syncObjects validate size/timestamp and set Failed
+	t.Logf("Test:syncObjects validate size/timestamp and set Failed")
 	snapshots = []*clustersnapshot.Snapshot{
 		newConfiguredSnapshot("test1", "Completed"),
 	}
@@ -975,6 +976,7 @@ func TestBucket(t *testing.T) {
 	chkSnapshot(t, cntl, "test1", "Failed", "Snapshot file size or timestamp not matched")
 
 	// syncObjects not validate and set object invalid snap Completed
+	t.Logf("Test:syncObjects not validate and set object invalid snap Completed")
 	snapshots = []*clustersnapshot.Snapshot{
 		newConfiguredSnapshot("test1", "Failed"),
 	}
@@ -991,6 +993,7 @@ func TestBucket(t *testing.T) {
 	chkSnapshot(t, cntl, "test1", "Completed", "")
 
 	// syncObjects re-mark Failed snap to Completed
+	t.Logf("Test:syncObjects re-mark Failed snap to Completed")
 	snapshots = []*clustersnapshot.Snapshot{
 		newConfiguredSnapshot("test1", "Failed"),
 	}
@@ -1009,6 +1012,7 @@ func TestBucket(t *testing.T) {
 	chkSnapshot(t, cntl, "test1", "Completed", "")
 
 	// syncObjects downloads tgz file to restore
+	t.Logf("Test:syncObjects downloads tgz file to restore")
 	snapshots = []*clustersnapshot.Snapshot{}
 	objectInfoList = []objectstore.ObjectInfo{
 		objectstore.ObjectInfo{
@@ -1025,6 +1029,7 @@ func TestBucket(t *testing.T) {
 	}
 
 	// Restore snapshot resource from test tgz file
+	t.Logf("Test:Restore snapshot resource from test tgz file")
 	snapshots = []*clustersnapshot.Snapshot{
 		newConfiguredSnapshot("test1", "InProgress"),
 	}
@@ -1034,7 +1039,7 @@ func TestBucket(t *testing.T) {
 	kubeClient := k8sfake.NewSimpleClientset(kubeobjects...)
 	sch := runtime.NewScheme()
 	dynamicClient := dynamicfake.NewSimpleDynamicClient(sch, ukubeobjects...)
-	err := cluster.SnapshotWithClient(context.TODO(), snapshots[0], kubeClient, dynamicClient)
+	err = cluster.SnapshotWithClient(context.TODO(), snapshots[0], kubeClient, dynamicClient)
 	if err != nil {
 		t.Errorf("Error in snapshotWithClient : %s", err.Error())
 	}
@@ -1098,5 +1103,3 @@ func TestControllerRun(t *testing.T) {
 		t.Errorf("Error in controller Run : %s", err.Error())
 	}
 }
-
-func int32Ptr(i int32) *int32 { return &i }
